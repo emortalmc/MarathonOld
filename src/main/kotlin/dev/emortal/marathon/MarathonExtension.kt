@@ -50,7 +50,7 @@ object MarathonExtension : Extension() {
     }
 
     override fun terminate() {
-        logger.info("Teminated!")
+        logger.info("Terminated!")
     }
 
 }

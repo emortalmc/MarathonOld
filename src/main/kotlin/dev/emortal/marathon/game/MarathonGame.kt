@@ -48,7 +48,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     var targetY = 150
     var targetX = 0
 
-    var currentBreakingTask: Task? = Manager.scheduler.buildTask { updateActionBar() }.repeat(Duration.ofSeconds(1)).schedule()
+    var currentBreakingTask: Task? = Manager.scheduler.buildTask { updateActionBar() }
+        .repeat(Duration.ofSeconds(1))
+        .schedule()
     var currentBreakingProgress = 0
     var finalBlockPos: Point = Pos(0.0, 149.0, 0.0)
 
@@ -197,6 +199,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         currentBreakingTask?.cancel()
         currentBreakingTask = MinecraftServer.getSchedulerManager().buildTask {
+            updateActionBar()
+
             if (blocks.size < 1) return@buildTask
 
             val block = blocks[0]
