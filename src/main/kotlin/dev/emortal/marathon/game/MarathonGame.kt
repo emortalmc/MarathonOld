@@ -10,12 +10,12 @@ import dev.emortal.marathon.generator.DefaultGenerator
 import dev.emortal.marathon.generator.Generator
 import dev.emortal.marathon.utils.firsts
 import dev.emortal.marathon.utils.sendBlockDamage
+import dev.emortal.marathon.utils.setBlock
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.title.Title
-import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -24,7 +24,6 @@ import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
-import net.minestom.server.network.packet.server.play.BlockChangePacket
 import net.minestom.server.sound.SoundEvent
 import net.minestom.server.timer.Task
 import net.minestom.server.utils.time.TimeUnit
@@ -141,7 +140,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     fun reset() {
-        if (animator is PathAnimator) animator.lastSandEntity = null
+        if (animator is PathAnimator) {
+            animator.lastSandEntity = null
+        }
 
         blocks.forEach {
             animator.destroyBlockAnimated(it.first, it.second)
@@ -251,7 +252,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         currentBreakingProgress = 0
 
         breakingTask?.cancel()
-        breakingTask = MinecraftServer.getSchedulerManager().buildTask {
+        breakingTask = Manager.scheduler.buildTask {
             if (blocks.size < 1) return@buildTask
 
             val block = blocks[0]
@@ -291,14 +292,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     fun playSound(pitch: Float) {
         playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 3f, pitch), Sound.Emitter.self())
-    }
-
-    fun setBlock(point: Point, block: Block) {
-        val packet = BlockChangePacket()
-        packet.blockPosition = point
-        packet.blockStateId = block.stateId().toInt()
-
-        this.sendGroupedPacket(packet)
     }
 
     override fun instanceCreate(): Instance {

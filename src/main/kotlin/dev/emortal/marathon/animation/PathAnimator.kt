@@ -9,6 +9,7 @@ import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.metadata.other.FallingBlockMeta
 import net.minestom.server.instance.block.Block
 import world.cepi.kstom.Manager
+import world.cepi.kstom.util.asPos
 import world.cepi.kstom.util.asVec
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
@@ -22,21 +23,34 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
 
     var lastSandEntity: Entity? = null
 
-    override fun setBlockAnimated(point: Point, block: Block, lastPoint: Point, lastBlock: Block) {
-        val timeToAnimate = 1.0
+    private fun getLastPos(): Point? {
+        if (lastSandEntity != null && lastSandEntity!!.aliveTicks < 2) return null
+        return lastSandEntity?.position?.sub(0.5, 0.0, 0.5)
+    }
 
-        val actualLastPoint = lastSandEntity?.position?.sub(0.5, 0.0, 0.5) ?: lastPoint
+    override fun setBlockAnimated(point: Point, block: Block, lastPoint: Point, lastBlock: Block) {
+        val timeToAnimate = 0.3
+
+        val actualLastPoint = getLastPos() ?: lastPoint
 
         val fallingBlock = Entity(EntityType.FALLING_BLOCK)
         val fallingBlockMeta = fallingBlock.entityMeta as FallingBlockMeta
 
         fallingBlock.setNoGravity(true)
         fallingBlockMeta.block = block
-        fallingBlock.velocity =
-            point.sub(actualLastPoint).asVec().normalize().mul(timeToAnimate * 1.15 * point.distance(actualLastPoint))
-        fallingBlock.setInstance(game.instance, actualLastPoint.add(0.5, 0.0, 0.5))
 
-        fallingBlock.updateViewerRule { game.players.contains(it) || game.spectators.contains(it) }
+        fallingBlock.velocity = point
+            .sub(actualLastPoint)
+            .asVec()
+            .normalize()
+            .mul((1 / timeToAnimate) * 1.15 * point.distance(actualLastPoint))
+        fallingBlock.setInstance(game.instance, actualLastPoint.add(0.5, 0.0, 1.5))
+        fallingBlock.scheduleNextTick {
+            it.teleport(actualLastPoint.add(0.5, 0.0, 0.5).asPos())
+        }
+
+
+        fallingBlock.updateViewableRule { game.players.contains(it) || game.spectators.contains(it) }
 
         lastSandEntity = fallingBlock
 
@@ -52,6 +66,8 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
         Manager.scheduler.buildTask {
             game.setBlock(point, block)
             fallingBlock.remove()
+
+            lastSandEntity = null
         }.delay(Duration.ofMillis((timeToAnimate * 1000L).toLong())).schedule()
     }
 
@@ -65,6 +81,6 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
         fallingBlockMeta.block = block
         fallingBlock.setInstance(game.instance, point.add(0.5, 0.0, 0.5))
 
-        fallingBlock.updateViewerRule { game.players.contains(it) || game.spectators.contains(it) }
+        fallingBlock.updateViewableRule { game.players.contains(it) || game.spectators.contains(it) }
     }
 }

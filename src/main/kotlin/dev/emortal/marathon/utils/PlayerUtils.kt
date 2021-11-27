@@ -7,18 +7,9 @@ import net.minestom.server.network.packet.server.play.BlockBreakAnimationPacket
 import net.minestom.server.network.packet.server.play.BlockChangePacket
 
 fun PacketGroupingAudience.setBlock(point: Point, block: Block) {
-    val packet = BlockChangePacket()
-    packet.blockPosition = point
-    packet.blockStateId = block.stateId().toInt()
-
-    this.sendGroupedPacket(packet)
+    sendGroupedPacket(BlockChangePacket(point, block.stateId().toInt()))
 }
 
 fun PacketGroupingAudience.sendBlockDamage(point: Point, destroyStage: Byte) {
-    val packet = BlockBreakAnimationPacket()
-    packet.destroyStage = destroyStage
-    packet.blockPosition = point
-    packet.entityId = this.players.first().entityId
-
-    this.sendGroupedPacket(packet)
+    sendGroupedPacket(BlockBreakAnimationPacket(players.first().entityId, point, destroyStage))
 }
