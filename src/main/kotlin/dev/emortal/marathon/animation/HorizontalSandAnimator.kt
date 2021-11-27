@@ -11,18 +11,21 @@ import net.minestom.server.instance.block.Block
 import world.cepi.kstom.Manager
 import java.time.Duration
 
-class FallingSandAnimation(game: Game) : BlockAnimation(game) {
-    override fun setBlockAnimated(point: Point, block: Block) {
+class HorizontalSandAnimator(game: Game) : BlockAnimator(game) {
+    override fun setBlockAnimated(point: Point, block: Block, lastPoint: Point, lastBlock: Block) {
         val fallingBlock = Entity(EntityType.FALLING_BLOCK)
         val fallingBlockMeta = fallingBlock.entityMeta as FallingBlockMeta
+        fallingBlock.setNoGravity(true)
         fallingBlockMeta.block = block
-        fallingBlock.velocity = Vec(0.0, -10.0, 0.0)
-        fallingBlock.setInstance(game.instance, point.add(0.5, 12.5, 0.5))
+        fallingBlock.velocity = Vec(0.0, 0.0, -8.5)
+        fallingBlock.setInstance(game.instance, point.add(0.5, 0.0, 12.5))
+
+        fallingBlock.updateViewerRule { game.players.contains(it) || game.spectators.contains(it) }
 
         Manager.scheduler.buildTask {
-            fallingBlock.remove()
             game.setBlock(point, block)
-        }.delay(Duration.ofSeconds(1)).schedule()
+            fallingBlock.remove()
+        }.delay(Duration.ofSeconds(2)).schedule()
     }
 
     override fun destroyBlockAnimated(point: Point, block: Block) {
@@ -31,8 +34,10 @@ class FallingSandAnimation(game: Game) : BlockAnimation(game) {
         game.setBlock(point, Block.AIR)
 
         fallingBlock.scheduleRemove(Duration.ofSeconds(2))
-        fallingBlock.velocity = Vec(0.0, 10.0, 0.0)
+        fallingBlock.velocity = Vec(0.0, 0.0, -5.0)
         fallingBlockMeta.block = block
-        fallingBlock.setInstance(game.instance, point.add(0.5, 0.5, 0.5))
+        fallingBlock.setInstance(game.instance, point.add(0.5, 0.0, 0.5))
+
+        fallingBlock.updateViewerRule { game.players.contains(it) || game.spectators.contains(it) }
     }
 }

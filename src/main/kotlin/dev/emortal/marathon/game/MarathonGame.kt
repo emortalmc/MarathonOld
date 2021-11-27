@@ -4,14 +4,17 @@ import dev.emortal.immortal.game.Game
 import dev.emortal.immortal.game.GameOptions
 import dev.emortal.marathon.BlockPalette
 import dev.emortal.marathon.MarathonExtension
-import dev.emortal.marathon.animation.BlockAnimation
-import dev.emortal.marathon.animation.FallingSandAnimation
+import dev.emortal.marathon.animation.BlockAnimator
+import dev.emortal.marathon.animation.PathAnimator
+import dev.emortal.marathon.generator.DefaultGenerator
+import dev.emortal.marathon.generator.Generator
 import dev.emortal.marathon.utils.firsts
 import dev.emortal.marathon.utils.sendBlockDamage
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
+import net.kyori.adventure.title.Title
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
@@ -34,13 +37,13 @@ import world.cepi.kstom.util.roundToBlock
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
 import world.cepi.particle.data.Color
+import world.cepi.particle.renderer.Renderer
+import world.cepi.particle.renderer.translate
 import world.cepi.particle.showParticle
 import java.text.SimpleDateFormat
 import java.time.Duration
 import java.util.*
-import java.util.concurrent.ThreadLocalRandom
 import kotlin.math.pow
-import kotlin.math.roundToInt
 
 class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
@@ -49,7 +52,11 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         val DATE_FORMAT = SimpleDateFormat("mm:ss")
     }
 
-    val animation: BlockAnimation = FallingSandAnimation(this)
+    private val animator: BlockAnimator = PathAnimator(this)
+    private val generator: Generator = DefaultGenerator
+
+    var previousHighscore: Pair<Int, Long> = Pair(0, 0)
+    var highscore = 0
 
     var targetY = 150
     var targetX = 0
@@ -64,7 +71,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     var finalBlockPos: Point = Pos(0.0, 149.0, 0.0)
 
     // Amount of blocks in front of the player
-    val length = 8
+    val length = 4
 
     var lastBlockTimestamp = 0L
     var startTimestamp = -1L
@@ -120,13 +127,24 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     override fun gameStarted() {
+        previousHighscore = MarathonExtension.storage.getHighscoreAndTime(players.first().uuid) ?: Pair(0, 0)
+
+        sendMessage(Component.text("$previousHighscore is your highscore"))
+
         startTimestamp = System.currentTimeMillis()
-        reset()
+        Manager.scheduler.buildTask { reset() }.delay(Duration.ofMillis(200)).schedule() // Fixes blocks not appearing
+    }
+
+    override fun gameDestroyed() {
+        breakingTask?.cancel()
+        actionBarTask.cancel()
     }
 
     fun reset() {
+        if (animator is PathAnimator) animator.lastSandEntity = null
+
         blocks.forEach {
-            animation.destroyBlockAnimated(it.first, it.second)
+            animator.destroyBlockAnimated(it.first, it.second)
         }
         blocks.clear()
 
@@ -142,6 +160,15 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         players.forEach {
             it.velocity = Vec.ZERO
             it.teleport(SPAWN_POINT)
+        }
+
+        if (highscore > previousHighscore.first) {
+            val secondsTaken = (System.currentTimeMillis() - startTimestamp) / 1000
+
+            MarathonExtension.storage.setHighscore(players.first().uuid, highscore, secondsTaken)
+            previousHighscore = Pair(highscore, secondsTaken)
+
+            sendMessage(Component.text("New highscore $highscore in $secondsTaken"))
         }
 
         setBlock(finalBlockPos, Block.DIAMOND_BLOCK)
@@ -170,6 +197,16 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
             score += times
 
+            highscore = highscore.coerceAtLeast(score)
+
+            showTitle(
+                Title.title(
+                    Component.empty(),
+                    Component.text(score, NamedTextColor.GREEN, TextDecoration.BOLD),
+                    Title.Times.of(Duration.ZERO, Duration.ofMillis(500), Duration.ofMillis(500))
+                )
+            )
+
             playSound(basePitch)
             createBreakingTask()
             updateActionBar()
@@ -180,7 +217,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     fun generateNextBlock() {
         if (blocks.size > length) {
-            animation.destroyBlockAnimated(blocks[0].first, blocks[0].second)
+            animator.destroyBlockAnimated(blocks[0].first, blocks[0].second)
 
             blocks.removeAt(0)
         }
@@ -188,27 +225,23 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         if (finalBlockPos.y() == 150.0) targetY =
             0 else if (finalBlockPos.y() < 135 || finalBlockPos.y() > 240) targetY = 150
 
-        val rand = ThreadLocalRandom.current()
-
-        val y = if (targetY == 0) rand.nextInt(-1, 2) else if (targetY < finalBlockPos.y()) -1 else 1
-        val z = if (y == 1) rand.nextInt(1, 4) else if (y == -1) rand.nextInt(1, 6) else rand.nextInt(1, 5)
-        val x = rand.nextInt(-3, 4)
-
-        finalBlockPos = finalBlockPos.add(x.toDouble(), y.toDouble(), z.toDouble())
+        finalBlockPos = generator.getNextPosition(finalBlockPos, targetX, targetY, score)
 
         val newPaletteBlock = blockPalette.blocks.random()
         val newPaletteBlockPos = finalBlockPos
 
-        animation.setBlockAnimated(newPaletteBlockPos, newPaletteBlock)
+        val lastBlock = blocks.last()
+        animator.setBlockAnimated(newPaletteBlockPos, newPaletteBlock, lastBlock.first, lastBlock.second)
 
         blocks.add(Pair(newPaletteBlockPos, newPaletteBlock))
 
         instance.showParticle(
             Particle.particle(
                 type = ParticleType.INSTANT_EFFECT,
-                count = 15,
-                data = Color(0.6f, 0.6f, 0.6f, 1f)
-            ), finalBlockPos.asVec()
+                count = 1,
+                data = Color(0f, 0f, 0f, 0f)
+            ),
+            Renderer.sphere(1.2, 25).translate(newPaletteBlockPos.asVec())
         )
 
         //player.sendParticle(ParticleUtils.particle(Particle.INSTANT_EFFECT, finalBlockPos.x(), finalBlockPos.y(), finalBlockPos.z(), 0.6f, 0.6f, 0.6f, 15))
@@ -243,8 +276,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     private fun updateActionBar() {
         val millisTaken: Long = if (startTimestamp == -1L) 0 else System.currentTimeMillis() - startTimestamp
         val formattedTime: String = DATE_FORMAT.format(Date(millisTaken))
-        val secondsTaken = (millisTaken / 1000.0).coerceAtLeast(1.0)
-        val scorePerSecond = (score / secondsTaken * 100).roundToInt() / 100.0
+        //val secondsTaken = (millisTaken / 1000.0).coerceAtLeast(1.0)
+        //val scorePerSecond = (score / secondsTaken * 100).roundToInt() / 100.0
 
         val message: Component = Component.text()
             .append(Component.text(score, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
@@ -262,14 +295,10 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     fun setBlock(point: Point, block: Block) {
         val packet = BlockChangePacket()
-        packet.blockPosition = point.roundToBlock()
+        packet.blockPosition = point
         packet.blockStateId = block.stateId().toInt()
 
         this.sendGroupedPacket(packet)
-    }
-
-    override fun gameDestroyed() {
-
     }
 
     override fun instanceCreate(): Instance {
