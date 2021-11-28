@@ -8,7 +8,7 @@ import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.animation.BlockAnimator
 import dev.emortal.marathon.animation.PathAnimator
 import dev.emortal.marathon.generator.Generator
-import dev.emortal.marathon.generator.NewGenerator
+import dev.emortal.marathon.generator.LegacyGenerator
 import dev.emortal.marathon.utils.firsts
 import dev.emortal.marathon.utils.sendBlockDamage
 import dev.emortal.marathon.utils.setBlock
@@ -47,14 +47,14 @@ import kotlin.math.pow
 class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     companion object {
-        val SPAWN_POINT = Pos(0.5, 151.0, 0.5)
+        val SPAWN_POINT = Pos(0.5, 150.0, 0.5)
         val DATE_FORMAT = SimpleDateFormat("mm:ss")
     }
 
     private val defaultTeam = registerTeam(Team("default"))
 
     private val animator: BlockAnimator = PathAnimator(this)
-    private val generator: Generator = NewGenerator
+    private val generator: Generator = LegacyGenerator
 
     var previousHighscore: Pair<Int, Long> = Pair(0, 0)
     var highscore = 0
@@ -108,7 +108,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     override fun registerEvents() {
         eventNode.listenOnly<PlayerMoveEvent> {
             if (player != this@MarathonGame.player) return@listenOnly
-            if (newPosition.y() < 130) {
+
+            if (newPosition.y() < (blocks.minOf { it.first.y() }) - 3) {
                 reset()
                 return@listenOnly
             }
@@ -172,7 +173,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         finalBlockPos = Pos(0.0, 149.0, 0.0)
 
         blocks.add(Pair(finalBlockPos, Block.DIAMOND_BLOCK))
-        setBlock(finalBlockPos, Block.DIAMOND_BLOCK)
 
         players.forEach {
             it.velocity = Vec.ZERO
