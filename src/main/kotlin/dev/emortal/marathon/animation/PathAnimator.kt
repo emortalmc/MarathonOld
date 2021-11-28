@@ -54,7 +54,7 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
 
         lastSandEntity = fallingBlock
 
-        game.instance.showParticle(
+        game.showParticle(
             Particle.particle(
                 type = ParticleType.DUST,
                 count = 1,

@@ -5,6 +5,7 @@ import dev.emortal.immortal.game.GameOptions
 import dev.emortal.immortal.game.WhenToRegisterEvents
 import dev.emortal.marathon.db.MariaStorage
 import dev.emortal.marathon.game.MarathonGame
+import dev.emortal.marathon.generator.NewGenerator
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -22,6 +23,11 @@ object MarathonExtension : Extension() {
         PARKOUR_INSTANCE = MinecraftServer.getInstanceManager().createInstanceContainer()
         //PARKOUR_INSTANCE.timeRate = 0
         PARKOUR_INSTANCE.setBlock(0, 149, 0, Block.DIAMOND_BLOCK)
+
+        repeat(50) {
+            println((NewGenerator.random.nextInt(180) - (180 / 2)))
+        }
+
 
         GameManager.registerGame<MarathonGame>(
             eventNode,

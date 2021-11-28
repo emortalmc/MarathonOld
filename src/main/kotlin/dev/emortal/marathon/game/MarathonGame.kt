@@ -2,12 +2,13 @@ package dev.emortal.marathon.game
 
 import dev.emortal.immortal.game.Game
 import dev.emortal.immortal.game.GameOptions
+import dev.emortal.immortal.game.Team
 import dev.emortal.marathon.BlockPalette
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.animation.BlockAnimator
 import dev.emortal.marathon.animation.PathAnimator
-import dev.emortal.marathon.generator.DefaultGenerator
 import dev.emortal.marathon.generator.Generator
+import dev.emortal.marathon.generator.NewGenerator
 import dev.emortal.marathon.utils.firsts
 import dev.emortal.marathon.utils.sendBlockDamage
 import dev.emortal.marathon.utils.setBlock
@@ -37,7 +38,6 @@ import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
 import world.cepi.particle.data.Color
 import world.cepi.particle.renderer.Renderer
-import world.cepi.particle.renderer.translate
 import world.cepi.particle.showParticle
 import java.text.SimpleDateFormat
 import java.time.Duration
@@ -47,12 +47,14 @@ import kotlin.math.pow
 class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     companion object {
-        val SPAWN_POINT = Pos(0.5, 150.0, 0.5)
+        val SPAWN_POINT = Pos(0.5, 151.0, 0.5)
         val DATE_FORMAT = SimpleDateFormat("mm:ss")
     }
 
+    private val defaultTeam = registerTeam(Team("default"))
+
     private val animator: BlockAnimator = PathAnimator(this)
-    private val generator: Generator = DefaultGenerator
+    private val generator: Generator = NewGenerator
 
     var previousHighscore: Pair<Int, Long> = Pair(0, 0)
     var highscore = 0
@@ -91,8 +93,12 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     var blocks = mutableListOf<Pair<Point, Block>>()
 
+    var player: Player? = null
+
     override fun playerJoin(player: Player) {
         player.respawnPoint = SPAWN_POINT
+        this.player = player
+        defaultTeam.add(player)
     }
 
     override fun playerLeave(player: Player) {
@@ -101,6 +107,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     override fun registerEvents() {
         eventNode.listenOnly<PlayerMoveEvent> {
+            if (player != this@MarathonGame.player) return@listenOnly
             if (newPosition.y() < 130) {
                 reset()
                 return@listenOnly
@@ -137,15 +144,23 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     override fun gameDestroyed() {
         breakingTask?.cancel()
         actionBarTask.cancel()
+
+        blocks.forEach {
+            setBlock(it.first, Block.AIR)
+        }
     }
 
     fun reset() {
+        getPlayers().forEach {
+            player?.sendMessage("Playing with ${it.username}")
+        }
+
         if (animator is PathAnimator) {
             animator.lastSandEntity = null
         }
 
         blocks.forEach {
-            animator.destroyBlockAnimated(it.first, it.second)
+            if (it.second != Block.DIAMOND_BLOCK) animator.destroyBlockAnimated(it.first, it.second)
         }
         blocks.clear()
 
@@ -157,6 +172,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         finalBlockPos = Pos(0.0, 149.0, 0.0)
 
         blocks.add(Pair(finalBlockPos, Block.DIAMOND_BLOCK))
+        setBlock(finalBlockPos, Block.DIAMOND_BLOCK)
 
         players.forEach {
             it.velocity = Vec.ZERO
@@ -171,8 +187,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
             sendMessage(Component.text("New highscore $highscore in $secondsTaken"))
         }
-
-        setBlock(finalBlockPos, Block.DIAMOND_BLOCK)
 
         generateNextBlock(length, false)
 
@@ -218,7 +232,10 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     fun generateNextBlock() {
         if (blocks.size > length) {
-            animator.destroyBlockAnimated(blocks[0].first, blocks[0].second)
+            if (blocks[0].second != Block.DIAMOND_BLOCK) animator.destroyBlockAnimated(
+                blocks[0].first,
+                blocks[0].second
+            )
 
             blocks.removeAt(0)
         }
@@ -236,13 +253,13 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         blocks.add(Pair(newPaletteBlockPos, newPaletteBlock))
 
-        instance.showParticle(
+        showParticle(
             Particle.particle(
                 type = ParticleType.INSTANT_EFFECT,
                 count = 1,
                 data = Color(0f, 0f, 0f, 0f)
             ),
-            Renderer.sphere(1.2, 25).translate(newPaletteBlockPos.asVec())
+            Renderer.fixedRectangle(newPaletteBlockPos.asVec(), newPaletteBlockPos.asVec().add(1.0, 1.0, 1.0))
         )
 
         //player.sendParticle(ParticleUtils.particle(Particle.INSTANT_EFFECT, finalBlockPos.x(), finalBlockPos.y(), finalBlockPos.z(), 0.6f, 0.6f, 0.6f, 15))
