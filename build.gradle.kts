@@ -38,7 +38,9 @@ dependencies {
 
     // Compile Minestom into project
     compileOnly("com.github.Minestom:Minestom:e53c0a68fb")
-    compileOnly("com.github.EmortalMC:Immortal:ef116d2b19")
+    compileOnly("com.github.EmortalMC:Immortal:c185fcad3b")
+
+    implementation("mysql:mysql-connector-java:8.0.27")
 
     // import kotlinx serialization
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.1")
@@ -63,7 +65,9 @@ tasks {
     named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
         archiveBaseName.set(project.name)
         mergeServiceFiles()
-        minimize()
+        minimize {
+            exclude(dependency("mysql:mysql-connector-java:8.0.27"))
+        }
     }
 
     test { useJUnitPlatform() }
