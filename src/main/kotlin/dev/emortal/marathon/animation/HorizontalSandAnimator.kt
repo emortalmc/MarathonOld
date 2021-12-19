@@ -20,7 +20,7 @@ class HorizontalSandAnimator(game: Game) : BlockAnimator(game) {
         fallingBlock.velocity = Vec(0.0, 0.0, -8.5)
         fallingBlock.setInstance(game.instance, point.add(0.5, 0.0, 12.5))
 
-        fallingBlock.updateViewerRule { game.players.contains(it) || game.spectators.contains(it) }
+        fallingBlock.updateViewableRule { game.players.contains(it) || game.spectators.contains(it) }
 
         Manager.scheduler.buildTask {
             game.setBlock(point, block)
@@ -38,6 +38,6 @@ class HorizontalSandAnimator(game: Game) : BlockAnimator(game) {
         fallingBlockMeta.block = block
         fallingBlock.setInstance(game.instance, point.add(0.5, 0.0, 0.5))
 
-        fallingBlock.updateViewerRule { game.players.contains(it) || game.spectators.contains(it) }
+        fallingBlock.updateViewableRule { game.players.contains(it) || game.spectators.contains(it) }
     }
 }

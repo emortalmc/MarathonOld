@@ -1,11 +1,11 @@
 package dev.emortal.marathon
 
+import dev.emortal.immortal.config.ConfigHelper
 import dev.emortal.immortal.game.GameManager
 import dev.emortal.immortal.game.GameOptions
 import dev.emortal.immortal.game.WhenToRegisterEvents
-import dev.emortal.marathon.db.MariaStorage
+import dev.emortal.marathon.config.DatabaseConfig
 import dev.emortal.marathon.game.MarathonGame
-import dev.emortal.marathon.generator.NewGenerator
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -13,21 +13,26 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.extensions.Extension
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
+import net.minestom.server.utils.NamespaceID
+import world.cepi.kstom.Manager
+import java.nio.file.Path
 
-object MarathonExtension : Extension() {
+class MarathonExtension : Extension() {
+    companion object {
+        lateinit var parkourInstance: Instance
 
-    lateinit var PARKOUR_INSTANCE: Instance
-    val storage = MariaStorage()
+        var databaseConfig = DatabaseConfig()
+        val databaseConfigPath = Path.of("./marathon.json")
+    }
 
     override fun initialize() {
-        PARKOUR_INSTANCE = MinecraftServer.getInstanceManager().createInstanceContainer()
-        //PARKOUR_INSTANCE.timeRate = 0
-        PARKOUR_INSTANCE.setBlock(0, 149, 0, Block.DIAMOND_BLOCK)
+        databaseConfig = ConfigHelper.initConfigFile(databaseConfigPath, databaseConfig)
 
-        repeat(50) {
-            println((NewGenerator.random.nextInt(180) - (180 / 2)))
-        }
-
+        val dimension = Manager.dimensionType.getDimension(NamespaceID.from("fullbright"))!!
+        parkourInstance = MinecraftServer.getInstanceManager().createInstanceContainer(dimension)
+        parkourInstance.time = 0
+        parkourInstance.timeRate = 0
+        parkourInstance.setBlock(0, 149, 0, Block.DIAMOND_BLOCK)
 
         GameManager.registerGame<MarathonGame>(
             eventNode,
@@ -47,8 +52,6 @@ object MarathonExtension : Extension() {
     }
 
     override fun terminate() {
-        GameManager.unregisterGame<MarathonGame>()
-
         logger.info("Terminated!")
     }
 

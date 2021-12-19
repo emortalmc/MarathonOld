@@ -12,19 +12,22 @@ import world.cepi.kstom.Manager
 import java.time.Duration
 
 class FallingSandAnimator(game: Game) : BlockAnimator(game) {
+
     override fun setBlockAnimated(point: Point, block: Block, lastPoint: Point, lastBlock: Block) {
+        val distanceToFall = 2.0
+
         val fallingBlock = Entity(EntityType.FALLING_BLOCK)
         val fallingBlockMeta = fallingBlock.entityMeta as FallingBlockMeta
         fallingBlockMeta.block = block
         fallingBlock.velocity = Vec(0.0, -10.0, 0.0)
-        fallingBlock.setInstance(game.instance, point.add(0.5, 12.0, 0.5))
+        fallingBlock.setInstance(game.instance, point.add(0.5, distanceToFall + 1, 0.5))
 
-        fallingBlock.updateViewerRule { game.getPlayers().contains(it) }
+        fallingBlock.updateViewableRule { game.getPlayers().contains(it) }
 
         Manager.scheduler.buildTask {
             game.setBlock(point, block)
             fallingBlock.remove()
-        }.delay(Duration.ofSeconds(1)).schedule()
+        }.delay(Duration.ofMillis((distanceToFall * 100).toLong())).schedule()
     }
 
     override fun destroyBlockAnimated(point: Point, block: Block) {
@@ -37,6 +40,6 @@ class FallingSandAnimator(game: Game) : BlockAnimator(game) {
         fallingBlockMeta.block = block
         fallingBlock.setInstance(game.instance, point.add(0.5, 0.0, 0.5))
 
-        fallingBlock.updateViewerRule { game.getPlayers().contains(it) }
+        fallingBlock.updateViewableRule { game.getPlayers().contains(it) }
     }
 }
