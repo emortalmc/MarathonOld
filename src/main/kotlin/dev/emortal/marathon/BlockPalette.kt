@@ -16,7 +16,7 @@ enum class BlockPalette(
     GRASS(
         Material.GRASS_BLOCK,
         Component.text("Grass", NamedTextColor.GREEN),
-        SoundEvent.ENTITY_COW_AMBIENT,
+        SoundEvent.BLOCK_GRASS_BREAK,
         Block.GRASS_BLOCK,
         Block.OAK_LOG,
         Block.BIRCH_LOG,
@@ -27,7 +27,7 @@ enum class BlockPalette(
     CAVE(
         Material.STONE,
         Component.text("Cave", NamedTextColor.GRAY),
-        SoundEvent.ENTITY_SKELETON_AMBIENT,
+        SoundEvent.BLOCK_DEEPSLATE_BREAK,
         Block.STONE,
         Block.STONE,
         Block.STONE,
@@ -59,7 +59,7 @@ enum class BlockPalette(
     RAINBOW(
         Material.PINK_WOOL,
         "<rainbow>Rainbow".asMini(),
-        SoundEvent.ENTITY_PLAYER_LEVELUP,
+        SoundEvent.BLOCK_WOOL_BREAK,
         Block.RED_WOOL,
         Block.ORANGE_WOOL,
         Block.YELLOW_WOOL,

@@ -80,6 +80,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         set(value) {
             if (blockPalette == value) return
 
+            playSound(Sound.sound(value.soundEffect, Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
+
             for (block in blocks) {
                 setBlock(block.first, value.blocks.random())
             }
@@ -94,7 +96,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         BlockPalette.values().forEachIndexed { i, it ->
             val item = item(it.displayItem) {
-                this.setTag(paletteTag, it.name)
+                setTag(paletteTag, it.name)
+                displayName(it.displayName.decoration(TextDecoration.ITALIC, false))
             }
 
             player.inventory.setItemStack(i + 2, item)
@@ -129,6 +132,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             val palette = BlockPalette.valueOf(
                 player.inventory.getItemStack(slot.toInt()).getTag(paletteTag) ?: return@listenOnly
             )
+
+            if (blockPalette == palette) return@listenOnly
+
             blockPalette = palette
         }
     }
@@ -140,9 +146,12 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     fun reset() {
         blocks.forEach {
-            animation.destroyBlockAnimated(it.first, it.second)
+            if (it.first == Block.DIAMOND_BLOCK) return@forEach
+            setBlock(it.first, Block.AIR)
         }
         blocks.clear()
+
+        instance.entities.filter { it !is Player }.forEach { it.remove() }
 
         breakingTask?.cancel()
         breakingTask = null
