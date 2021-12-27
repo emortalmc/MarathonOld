@@ -6,6 +6,8 @@ import dev.emortal.marathon.BlockPalette
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.animation.BlockAnimator
 import dev.emortal.marathon.animation.FallingSandAnimator
+import dev.emortal.marathon.generator.Generator
+import dev.emortal.marathon.generator.LegacyGenerator
 import dev.emortal.marathon.utils.firsts
 import dev.emortal.marathon.utils.sendBlockDamage
 import dev.emortal.marathon.utils.setBlock
@@ -36,15 +38,21 @@ import world.cepi.kstom.util.roundToBlock
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
 import world.cepi.particle.data.Color
+import world.cepi.particle.renderer.Renderer
 import world.cepi.particle.showParticle
 import java.text.SimpleDateFormat
 import java.time.Duration
 import java.util.*
-import java.util.concurrent.ThreadLocalRandom
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
 class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
+
+    init {
+        if (Manager.instance.getInstance(MarathonExtension.parkourInstance.uniqueId) == null) {
+            Manager.instance.registerInstance(MarathonExtension.parkourInstance)
+        }
+    }
 
     companion object {
         val SPAWN_POINT = Pos(0.5, 150.0, 0.5)
@@ -53,6 +61,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         val paletteTag = Tag.String("palette")
     }
 
+    val generator: Generator = LegacyGenerator
     val animation: BlockAnimator = FallingSandAnimator(this)
 
     var targetY = 150
@@ -68,7 +77,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     var finalBlockPos: Point = Pos(0.0, 149.0, 0.0)
 
     // Amount of blocks in front of the player
-    val length = 8
+    var length = 8
 
     var lastBlockTimestamp = 0L
     var startTimestamp = -1L
@@ -93,6 +102,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     override fun playerJoin(player: Player) {
         player.respawnPoint = SPAWN_POINT
+        player.teleport(SPAWN_POINT)
 
         BlockPalette.values().forEachIndexed { i, it ->
             val item = item(it.displayItem) {
@@ -110,7 +120,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     override fun registerEvents() {
         eventNode.listenOnly<PlayerMoveEvent> {
-            if (newPosition.y() < 130) {
+            if (newPosition.y() < (blocks.map { it.first }.minOf { it.y() }) - 3) {
                 reset()
                 return@listenOnly
             }
@@ -142,6 +152,10 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     override fun gameStarted() {
         startTimestamp = System.currentTimeMillis()
         reset()
+    }
+
+    override fun gameDestroyed() {
+        breakingTask?.cancel()
     }
 
     fun reset() {
@@ -211,13 +225,14 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         if (finalBlockPos.y() == 150.0) targetY =
             0 else if (finalBlockPos.y() < 135 || finalBlockPos.y() > 240) targetY = 150
 
-        val rand = ThreadLocalRandom.current()
+        //val rand = ThreadLocalRandom.current()
 
-        val y = if (targetY == 0) rand.nextInt(-1, 2) else if (targetY < finalBlockPos.y()) -1 else 1
-        val z = if (y == 1) rand.nextInt(1, 4) else if (y == -1) rand.nextInt(1, 6) else rand.nextInt(1, 5)
-        val x = rand.nextInt(-3, 4)
+        //val y = if (targetY == 0) rand.nextInt(-1, 2) else if (targetY < finalBlockPos.y()) -1 else 1
+        //val z = if (y == 1) rand.nextInt(1, 4) else if (y == -1) rand.nextInt(1, 6) else rand.nextInt(1, 5)
+        //val x = rand.nextInt(-3, 4)
 
-        finalBlockPos = finalBlockPos.add(x.toDouble(), y.toDouble(), z.toDouble())
+        //finalBlockPos = finalBlockPos.add(x.toDouble(), y.toDouble(), z.toDouble())
+        finalBlockPos = generator.getNextPosition(finalBlockPos, targetX, targetY, score)
 
         val newPaletteBlock = blockPalette.blocks.random()
         val newPaletteBlockPos = finalBlockPos
@@ -230,9 +245,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         instance.showParticle(
             Particle.particle(
                 type = ParticleType.INSTANT_EFFECT,
-                count = 15,
-                data = Color(0.6f, 0.6f, 0.6f, 1f)
-            ), finalBlockPos.asVec()
+                count = 1,
+                data = Color(0f, 0f, 0f, 0f)
+            ), Renderer.fixedRectangle(finalBlockPos.asVec(), finalBlockPos.asVec().add(1.0, 1.0, 1.0), step = 0.1)
         )
 
         //player.sendParticle(ParticleUtils.particle(Particle.INSTANT_EFFECT, finalBlockPos.x(), finalBlockPos.y(), finalBlockPos.z(), 0.6f, 0.6f, 0.6f, 15))
@@ -250,7 +265,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             currentBreakingProgress += 2
 
             if (currentBreakingProgress > 8) {
-                playSound(Sound.sound(SoundEvent.BLOCK_WOOD_BREAK, Sound.Source.BLOCK, 1f, 1f), block.first)
                 //setBlock(block.first, Block.AIR)
 
                 generateNextBlock()
@@ -261,7 +275,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
             playSound(Sound.sound(SoundEvent.BLOCK_WOOD_HIT, Sound.Source.BLOCK, 0.5f, 1f), block.first)
             sendBlockDamage(block.first, currentBreakingProgress.toByte())
-        }.delay(1000, TimeUnit.MILLISECOND).repeat(500, TimeUnit.MILLISECOND).schedule()
+        }.delay(2000, TimeUnit.MILLISECOND).repeat(500, TimeUnit.MILLISECOND).schedule()
     }
 
     private fun updateActionBar() {
@@ -282,10 +296,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     fun playSound(pitch: Float) {
         playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 3f, pitch), Sound.Emitter.self())
-    }
-
-    override fun gameDestroyed() {
-
     }
 
     override fun instanceCreate(): Instance {

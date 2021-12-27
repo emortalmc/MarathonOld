@@ -4,41 +4,39 @@ import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Vec
 import world.cepi.kstom.util.asPos
 import world.cepi.kstom.util.roundToBlock
-import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.sin
 
 object NewGenerator : Generator() {
 
     override fun getNextPosition(pos: Point, targetX: Int, targetY: Int, score: Int): Point {
-        //val yChange = random.nextInt(-1, 2)
-        val yChange = 0
+        //val yChange = random.nextInt(0, 1)
+        val yChange = random.nextInt(-10, -5)
         return pos
-            .add(randomPointWithinDistance(1.0, maxDistanceFromYChange(yChange.toDouble())))
+            .add(randomPointWithinDistance(1.5, maxDistanceFromYChange(yChange.toDouble())))
             .asPos()
             .roundToBlock()
             .add(0.0, yChange.toDouble(), 0.0)
     }
 
-    fun possibleJump(distance: Double): Boolean {
-        return distance <= 4.5
-    }
-
     fun maxDistanceFromYChange(yChange: Double): Double {
-        return 4.5 - (yChange / 2.0)
+        return floor(4.5 - (yChange / 3.0))
     }
 
     fun randomPointWithinDistance(
         minDistance: Double,
         maxDistance: Double,
-        fov: Int = 90
+        fov: Int = 120
     ): Point {
-        val angle = (random.nextInt(fov) - (fov / 2)) * PI / 180
-        println(angle)
+        val angle = Math.toRadians(random.nextInt(fov).toDouble())
 
-        return Vec(cos(angle) + 0.5, 0.0, sin(angle) + 0.5)
+        val vec = Vec(cos(angle), 0.0, sin(angle))
+
+        return vec
             //.mul(random.nextDouble(minDistance, maxDistance))
-            .mul(2.0)
+            .mul(maxDistance)
+            .rotateAroundY(Math.toRadians(270.0 + (fov / 2)))
 
     }
 }

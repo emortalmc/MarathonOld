@@ -37,9 +37,8 @@ dependencies {
     compileOnly(kotlin("reflect"))
 
     // Compile Minestom into project
-    implementation("com.github.emortaldev:particable:e98f138cda")
     compileOnly("com.github.emortaldev:Minestom:d25ea275e4")
-    compileOnly("com.github.EmortalMC:Immortal:ebe3dd74ea")
+    compileOnly("com.github.EmortalMC:Immortal:dfaa9718fd")
 
     implementation("mysql:mysql-connector-java:8.0.27")
 

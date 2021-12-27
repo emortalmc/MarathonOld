@@ -20,9 +20,8 @@ class FallingSandAnimator(game: Game) : BlockAnimator(game) {
         val fallingBlockMeta = fallingBlock.entityMeta as FallingBlockMeta
         fallingBlockMeta.block = block
         fallingBlock.velocity = Vec(0.0, -10.0, 0.0)
-        fallingBlock.setInstance(game.instance, point.add(0.5, distanceToFall + 1, 0.5))
-
         fallingBlock.updateViewableRule { game.getPlayers().contains(it) }
+        fallingBlock.setInstance(game.instance, point.add(0.5, distanceToFall + 1, 0.5))
 
         Manager.scheduler.buildTask {
             game.setBlock(point, block)
@@ -30,16 +29,4 @@ class FallingSandAnimator(game: Game) : BlockAnimator(game) {
         }.delay(Duration.ofMillis((distanceToFall * 100).toLong())).schedule()
     }
 
-    override fun destroyBlockAnimated(point: Point, block: Block) {
-        val fallingBlock = Entity(EntityType.FALLING_BLOCK)
-        val fallingBlockMeta = fallingBlock.entityMeta as FallingBlockMeta
-        game.setBlock(point, Block.AIR)
-
-        fallingBlock.scheduleRemove(Duration.ofSeconds(2))
-        fallingBlock.velocity = Vec(0.0, 10.0, 0.0)
-        fallingBlockMeta.block = block
-        fallingBlock.setInstance(game.instance, point.add(0.5, 0.0, 0.5))
-
-        fallingBlock.updateViewableRule { game.getPlayers().contains(it) }
-    }
 }

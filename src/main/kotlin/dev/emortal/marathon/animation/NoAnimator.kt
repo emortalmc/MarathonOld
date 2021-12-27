@@ -9,8 +9,4 @@ class NoAnimator(game: Game) : BlockAnimator(game) {
     override fun setBlockAnimated(point: Point, block: Block, lastPoint: Point, lastBlock: Block) {
         game.setBlock(point, block)
     }
-
-    override fun destroyBlockAnimated(point: Point, block: Block) {
-        game.setBlock(point, Block.AIR)
-    }
 }
