@@ -40,7 +40,7 @@ dependencies {
     compileOnly("com.github.emortaldev:Minestom:d25ea275e4")
     compileOnly("com.github.EmortalMC:Immortal:dfaa9718fd")
 
-    implementation("mysql:mysql-connector-java:8.0.27")
+    implementation("mysql:mysql-connector-java:8.0.28")
 
     // import kotlinx serialization
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
@@ -66,7 +66,7 @@ tasks {
         archiveBaseName.set(project.name)
         mergeServiceFiles()
         minimize {
-            exclude(dependency("mysql:mysql-connector-java:8.0.27"))
+            exclude(dependency("mysql:mysql-connector-java:8.0.28"))
         }
     }
 
