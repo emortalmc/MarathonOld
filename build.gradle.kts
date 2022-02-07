@@ -6,7 +6,7 @@ plugins {
     // Kotlinx serialization for any data format
     kotlin("plugin.serialization") version "1.6.10"
     // Shade the plugin
-    id("com.github.johnrengelman.shadow") version "7.1.0"
+    id("com.github.johnrengelman.shadow") version "7.1.2"
     // Allow publishing
     `maven-publish`
 
@@ -37,10 +37,14 @@ dependencies {
     compileOnly(kotlin("reflect"))
 
     // Compile Minestom into project
-    compileOnly("com.github.emortaldev:Minestom:d25ea275e4")
-    compileOnly("com.github.EmortalMC:Immortal:dfaa9718fd")
+    compileOnly("com.github.Minestom:Minestom:2e02dfd4d8")
+    compileOnly("com.github.EmortalMC:Immortal:bc7cba55b7")
 
-    implementation("mysql:mysql-connector-java:8.0.28")
+    compileOnly("mysql:mysql-connector-java:8.0.28")
+    compileOnly("com.zaxxer:HikariCP:5.0.1")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
+
+    compileOnly("com.github.EmortalMC:Acquaintance:bc105220d5")
 
     // import kotlinx serialization
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")

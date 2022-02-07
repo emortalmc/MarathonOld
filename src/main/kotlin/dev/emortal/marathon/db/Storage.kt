@@ -1,17 +1,18 @@
 package dev.emortal.marathon.db
 
+import com.zaxxer.hikari.HikariDataSource
 import java.sql.Connection
 import java.util.*
 
 abstract class Storage {
 
-    abstract fun setHighscore(player: UUID, highscore: Int, time: Long)
-    abstract fun getHighscore(player: UUID): Int?
-    abstract fun getTime(player: UUID): Long?
-    abstract fun getHighscoreAndTime(player: UUID): Pair<Int, Long>?
+    abstract fun setHighscore(player: UUID, highscore: Highscore)
+    abstract suspend fun getHighscoreAsync(player: UUID): Highscore?
+    abstract suspend fun getTopHighscoresAsync(highscoreCount: Int = 10): Map<UUID, Highscore>?
 
-    val connection = createConnection()
+    val hikari = createHikari()
+    abstract fun createHikari(): HikariDataSource
 
-    abstract fun createConnection(): Connection
+    fun getConnection(): Connection = hikari.connection
 
 }

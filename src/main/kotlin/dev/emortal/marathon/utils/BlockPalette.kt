@@ -1,4 +1,4 @@
-package dev.emortal.marathon
+package dev.emortal.marathon.utils
 
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
