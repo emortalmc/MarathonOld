@@ -88,7 +88,7 @@ class MySQLStorage : Storage() {
     override suspend fun getTopHighscoresAsync(highscoreCount: Int): Map<UUID, Highscore> = coroutineScope {
         return@coroutineScope async {
             val conn = getConnection()
-            val statement = conn.prepareStatement("SELECT * FROM marathon ORDER BY highscore DESC LIMIT $highscoreCount")
+            val statement = conn.prepareStatement("SELECT * FROM marathon ORDER BY highscore DESC, time ASC LIMIT $highscoreCount")
 
             val map = mutableMapOf<UUID, Highscore>()
             val results = statement.executeQuery()
@@ -107,6 +107,24 @@ class MySQLStorage : Storage() {
             conn.close()
 
             return@async map
+        }.await()
+    }
+
+    override suspend fun getPlacementAsync(score: Int): Int? = coroutineScope {
+        return@coroutineScope async {
+            val conn = getConnection()
+            val statement = conn.prepareStatement("SELECT COUNT(DISTINCT player) + 1 AS total FROM marathon WHERE highscore > ${score}")
+
+            var result: Int? = null
+            val results = statement.executeQuery()
+            if (results.next()) {
+                result = results.getInt("total")
+            }
+
+            statement.close()
+            conn.close()
+
+            return@async result
         }.await()
     }
 

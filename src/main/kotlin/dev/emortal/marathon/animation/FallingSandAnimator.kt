@@ -1,7 +1,6 @@
 package dev.emortal.marathon.animation
 
 import dev.emortal.immortal.game.Game
-import dev.emortal.marathon.utils.setBlock
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -20,11 +19,10 @@ class FallingSandAnimator(game: Game) : BlockAnimator(game) {
         val fallingBlockMeta = fallingBlock.entityMeta as FallingBlockMeta
         fallingBlockMeta.block = block
         fallingBlock.velocity = Vec(0.0, -10.0, 0.0)
-        fallingBlock.updateViewableRule { game.getPlayers().contains(it) }
         fallingBlock.setInstance(game.instance, point.add(0.5, distanceToFall + 1, 0.5))
 
         Manager.scheduler.buildTask {
-            game.setBlock(point, block)
+            game.instance.setBlock(point, block)
             fallingBlock.remove()
         }.delay(Duration.ofMillis((distanceToFall * 100).toLong())).schedule()
     }

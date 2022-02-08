@@ -1,7 +1,6 @@
 package dev.emortal.marathon.animation
 
 import dev.emortal.immortal.game.Game
-import dev.emortal.marathon.utils.setBlock
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -49,9 +48,6 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
             it.teleport(actualLastPoint.add(0.5, 0.0, 0.5).asPos())
         }
 
-
-        fallingBlock.updateViewableRule { game.players.contains(it) || game.spectators.contains(it) }
-
         lastSandEntity = fallingBlock
 
         game.showParticle(
@@ -64,7 +60,7 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
         )
 
         Manager.scheduler.buildTask {
-            game.setBlock(point, block)
+            game.instance.setBlock(point, block)
             fallingBlock.remove()
 
             lastSandEntity = null
@@ -74,13 +70,11 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
     override fun destroyBlockAnimated(point: Point, block: Block) {
         val fallingBlock = Entity(EntityType.FALLING_BLOCK)
         val fallingBlockMeta = fallingBlock.entityMeta as FallingBlockMeta
-        game.setBlock(point, Block.AIR)
+        game.instance.setBlock(point, Block.AIR)
 
         fallingBlock.scheduleRemove(Duration.ofSeconds(2))
         fallingBlock.velocity = Vec(0.0, 10.0, 0.0)
         fallingBlockMeta.block = block
         fallingBlock.setInstance(game.instance, point.add(0.5, 0.0, 0.5))
-
-        fallingBlock.updateViewableRule { game.players.contains(it) || game.spectators.contains(it) }
     }
 }

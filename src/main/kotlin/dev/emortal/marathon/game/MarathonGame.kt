@@ -36,6 +36,7 @@ import net.minestom.server.timer.Task
 import net.minestom.server.utils.NamespaceID
 import net.minestom.server.utils.time.TimeUnit
 import world.cepi.kstom.Manager
+import world.cepi.kstom.Manager.block
 import world.cepi.kstom.adventure.noItalic
 import world.cepi.kstom.event.listenOnly
 import world.cepi.kstom.item.item
@@ -95,8 +96,10 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
             playSound(Sound.sound(value.soundEffect, Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
 
-            for (block in blocks) {
-                setBlock(block.first, value.blocks.random())
+            blocks.forEachIndexed { i, block ->
+                val newBlock = value.blocks.random()
+                instance.setBlock(block.first, newBlock)
+                blocks[i] = Pair(block.first, newBlock)
             }
 
             field = value
@@ -105,6 +108,11 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     var blocks = mutableListOf<Pair<Point, Block>>()
 
     override var spawnPosition = SPAWN_POINT
+
+
+    private var highscore: Highscore? = null
+    private var passedHighscore = false
+
 
     init {
         scoreboard?.createLine(
@@ -117,14 +125,35 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 0
             )
         )
+        scoreboard?.createLine(
+            Sidebar.ScoreboardLine(
+                "placementLine",
+                Component.text()
+                    .append(Component.text("#-", NamedTextColor.LIGHT_PURPLE))
+                    .append(Component.text(" on leaderboard", NamedTextColor.GRAY))
+                    .build(),
+                0
+            )
+        )
     }
 
     override fun playerJoin(player: Player) = runBlocking {
+        highscore = MarathonExtension.storage?.getHighscoreAsync(player.uuid)
+        val highscorePoints = highscore?.score ?: 0
+        val placement = MarathonExtension.storage?.getPlacementAsync(highscorePoints) ?: 0
+
         scoreboard?.updateLineContent(
             "highscoreLine",
             Component.text()
                 .append(Component.text("Highscore: ", NamedTextColor.GRAY))
-                .append(Component.text(MarathonExtension.storage?.getHighscoreAsync(player.uuid)?.score ?: 0, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                .append(Component.text(highscorePoints, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                .build()
+        )
+        scoreboard?.updateLineContent(
+            "placementLine",
+            Component.text()
+                .append(Component.text("#${placement}", NamedTextColor.LIGHT_PURPLE))
+                .append(Component.text(" on leaderboard", NamedTextColor.GRAY))
                 .build()
         )
 
@@ -195,7 +224,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     private fun reset() = runBlocking {
         blocks.forEach {
             if (it.first == Block.DIAMOND_BLOCK) return@forEach
-            setBlock(it.first, Block.AIR)
+            instance.setBlock(it.first, Block.AIR)
         }
         blocks.clear()
 
@@ -226,14 +255,14 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                     .append(Component.text(" in ", NamedTextColor.GRAY))
                     .append(Component.text(formattedTime, NamedTextColor.GOLD))
                     .append(Component.text(" because you literally died one block before", NamedTextColor.GRAY))
-                    .append(Component.text("\nWe can't even show the new highscore, because you didn't get one", NamedTextColor.LIGHT_PURPLE))
+                    .append(Component.text("\nWe can't even show the new highscore, because you didn't get one (L)", NamedTextColor.LIGHT_PURPLE))
                     .armify()
             )
 
             scoreboard?.updateLineContent(
                 "highscoreLine",
                 Component.text()
-                    .append(Component.text("Your not Highscore: ", NamedTextColor.GRAY))
+                    .append(Component.text("Your (not) Highscore: ", NamedTextColor.GRAY))
                     .append(Component.text(previousScore, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
                     .build()
             )
@@ -242,6 +271,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         if (previousScore > highscore) {
             val millisTaken = System.currentTimeMillis() - startTimestamp
             val formattedTime: String = DATE_FORMAT.format(Date(millisTaken))
+
+            val placement = MarathonExtension.storage?.getPlacementAsync(previousScore) ?: 0
 
             players.first().sendMessage(
                 Component.text()
@@ -253,6 +284,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                     .append(Component.text(formattedTime, NamedTextColor.GOLD))
                     .append(Component.text("\nYour new highscore is ", NamedTextColor.LIGHT_PURPLE))
                     .append(Component.text(previousScore, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                    .append(Component.text("\n\nYou are now #${placement} on the leaderboard!", NamedTextColor.GOLD))
                     .append(Component.text("\n"))
                     .armify()
             )
@@ -262,6 +294,13 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 Component.text()
                     .append(Component.text("Highscore: ", NamedTextColor.GRAY))
                     .append(Component.text(previousScore, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                    .build()
+            )
+            scoreboard?.updateLineContent(
+                "placementLine",
+                Component.text()
+                    .append(Component.text("#${placement}", NamedTextColor.LIGHT_PURPLE))
+                    .append(Component.text(" on leaderboard", NamedTextColor.GRAY))
                     .build()
             )
 
@@ -279,7 +318,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             it.teleport(SPAWN_POINT)
         }
 
-        setBlock(finalBlockPos, Block.DIAMOND_BLOCK)
+        instance.setBlock(finalBlockPos, Block.DIAMOND_BLOCK)
 
         generateNextBlock(length, false)
 
@@ -304,6 +343,22 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             val basePitch: Float = 1 + (combo - 1) * 0.05f
 
             score += times
+
+            val highscorePoints = highscore?.score ?: 0
+            if (!passedHighscore && score > highscorePoints) {
+                players.first().sendMessage(
+                    Component.text()
+                        .append(Component.text("\nYou beat your previous highscore of ", NamedTextColor.GRAY))
+                        .append(Component.text(highscorePoints, NamedTextColor.GREEN))
+                        .append(Component.text("\nSee how much further you can go!", NamedTextColor.GOLD))
+                        .append(Component.text("\n"))
+                        .armify()
+                )
+                players.first().playSound(Sound.sound(SoundEvent.ENTITY_VILLAGER_CELEBRATE, Sound.Source.MASTER, 1f, 1f))
+
+                passedHighscore = true
+            }
+
             showTitle(
                 Title.title(
                     Component.empty(),
