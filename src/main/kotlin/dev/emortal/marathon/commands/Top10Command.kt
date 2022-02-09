@@ -30,13 +30,13 @@ object Top10Command : Kommand({
 
             val color = when (i) {
                 1 -> Style.style(NamedTextColor.GOLD, TextDecoration.BOLD)
-                2 -> Style.style(NamedTextColor.GRAY, TextDecoration.BOLD)
+                2 -> Style.style(TextColor.color(210, 210, 210), TextDecoration.BOLD)
                 3 -> Style.style(TextColor.color(205, 127, 50), TextDecoration.BOLD)
                 else -> Style.style(TextColor.color(120, 120, 120))
             }
             val nameColor = when (i) {
                 1 -> Style.style(NamedTextColor.GOLD)
-                2 -> Style.style(NamedTextColor.GRAY)
+                2 -> Style.style(TextColor.color(210, 210, 210))
                 3 -> Style.style(TextColor.color(205, 127, 50))
                 else -> Style.style(TextColor.color(120, 120, 120))
             }
@@ -68,7 +68,7 @@ object Top10Command : Kommand({
 
                 message.append(
                     Component.text()
-                        .append(Component.text("\n\n${placement}", NamedTextColor.AQUA, TextDecoration.BOLD))
+                        .append(Component.text(" \n\n${placement}", NamedTextColor.AQUA, TextDecoration.BOLD))
                         .append(Component.text(" - ", NamedTextColor.DARK_GRAY))
                         .append(Component.text(player.username, NamedTextColor.DARK_AQUA))
                         .append(Component.space())

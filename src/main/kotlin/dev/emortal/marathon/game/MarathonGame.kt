@@ -69,7 +69,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     val generator: Generator = LegacyGenerator
     val animation: BlockAnimator = FallingSandAnimator(this)
-    var pointSoundEffect: SoundEvent = SoundEvent.BLOCK_NOTE_BLOCK_PLING
+    var pointSoundEffect: SoundEvent = SoundEvent.BLOCK_NOTE_BLOCK_BASS
 
     var targetY = 150
     var targetX = 0
@@ -152,7 +152,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         scoreboard?.updateLineContent(
             "placementLine",
             Component.text()
-                .append(Component.text("#${placement}", NamedTextColor.LIGHT_PURPLE))
+                .append(Component.text("#${placement}", NamedTextColor.GOLD))
                 .append(Component.text(" on leaderboard", NamedTextColor.GRAY))
                 .build()
         )
@@ -165,7 +165,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
             player.inventory.setItemStack(i + 2, item)
         }
-        player.inventory.setItemStack(8, ItemStack.of(Material.NOTE_BLOCK))
+        player.inventory.setItemStack(8, item(Material.NOTE_BLOCK) {
+            displayName(Component.text("Sound Selector").noItalic())
+        })
     }
 
     override fun playerLeave(player: Player) {
@@ -241,7 +243,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 Title.title(
                     Component.text("F", NamedTextColor.RED, TextDecoration.BOLD),
                     Component.empty(),
-                    Title.Times.of(Duration.ofSeconds(3), Duration.ofSeconds(2), Duration.ofSeconds(1))
+                    Title.Times.of(Duration.ZERO, Duration.ofSeconds(2), Duration.ofSeconds(1))
                 )
             )
 
@@ -377,7 +379,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     fun generateNextBlock() {
         if (blocks.size > length) {
-            animation.destroyBlockAnimated(blocks[0].first, blocks[0].second)
+            animation.destroyBlockAnimated(blocks[0].first)
 
             blocks.removeAt(0)
         }
@@ -391,18 +393,17 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         val newPaletteBlockPos = finalBlockPos
 
         val lastBlock = blocks.last()
-        animation.setBlockAnimated(newPaletteBlockPos, newPaletteBlock, lastBlock.first, lastBlock.second)
+        animation.setBlockAnimated(newPaletteBlockPos, newPaletteBlock, lastBlock.first)
 
         blocks.add(Pair(newPaletteBlockPos, newPaletteBlock))
 
         instance.showParticle(
             Particle.particle(
-                type = ParticleType.DUST,
-                count = 1,
-                data = OffsetAndSpeed(),
-                extraData = Dust(1f, 1f, 1f, 1f)
-            ), Renderer.fixedRectangle(finalBlockPos.asVec(), finalBlockPos.asVec().add(1.0, 1.0, 1.0), step = 0.15)
-        )
+                type = ParticleType.CLOUD,
+                count = 10,
+                data = OffsetAndSpeed(0.25f, 0.25f, 0.25f, 0.05f),
+                //extraData = Dust(1f, 1f, 1f, 1f)
+        ), finalBlockPos.asVec().add(0.5, 0.5, 0.5))
     }
 
     private fun createBreakingTask() {

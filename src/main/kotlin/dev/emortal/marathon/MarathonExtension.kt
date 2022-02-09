@@ -9,6 +9,7 @@ import dev.emortal.marathon.config.DatabaseConfig
 import dev.emortal.marathon.db.MySQLStorage
 import dev.emortal.marathon.db.Storage
 import dev.emortal.marathon.game.MarathonGame
+import dev.emortal.marathon.game.MarathonRacingGame
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -18,8 +19,6 @@ import java.util.*
 
 class MarathonExtension : Extension() {
     companion object {
-        //lateinit var parkourInstance: InstanceContainer
-
         var databaseConfig = DatabaseConfig()
         val databaseConfigPath = Path.of("./marathon.json")
 
@@ -31,17 +30,7 @@ class MarathonExtension : Extension() {
 
         if (databaseConfig.enabled) {
             storage = MySQLStorage()
-
-            //runBlocking {
-            //    println((storage as MySQLStorage).getTopHighscoresAsync())
-            //}
         }
-
-        //val dimension = Manager.dimensionType.getDimension(NamespaceID.from("fullbright"))!!
-
-        // Using InstanceContainer so instance isn't automatically registered on startup,
-        // instance gets manually registered when at least one game of Marathon is created
-
 
         GameManager.registerGame<MarathonGame>(
             eventNode,
@@ -55,6 +44,21 @@ class MarathonExtension : Extension() {
                 minPlayers = 1,
                 countdownSeconds = 0,
                 showsJoinLeaveMessages = false
+            )
+        )
+
+        GameManager.registerGame<MarathonRacingGame>(
+            eventNode,
+            "marathonracing",
+            Component.text("Marathon Racing", NamedTextColor.RED, TextDecoration.BOLD),
+            showsInSlashPlay = true,
+            canSpectate = true,
+            WhenToRegisterEvents.GAME_START,
+            GameOptions(
+                maxPlayers = 8,
+                minPlayers = 2,
+                countdownSeconds = 0,
+                showsJoinLeaveMessages = true
             )
         )
 

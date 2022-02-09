@@ -8,11 +8,12 @@ import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.metadata.other.FallingBlockMeta
 import net.minestom.server.instance.block.Block
 import world.cepi.kstom.Manager
+import world.cepi.kstom.Manager.block
 import java.time.Duration
 
 class FallingSandAnimator(game: Game) : BlockAnimator(game) {
 
-    override fun setBlockAnimated(point: Point, block: Block, lastPoint: Point, lastBlock: Block) {
+    override fun setBlockAnimated(point: Point, block: Block, lastPoint: Point) {
         val distanceToFall = 2.0
 
         val fallingBlock = Entity(EntityType.FALLING_BLOCK)

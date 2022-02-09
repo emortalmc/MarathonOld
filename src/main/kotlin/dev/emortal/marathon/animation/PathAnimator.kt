@@ -8,6 +8,7 @@ import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.metadata.other.FallingBlockMeta
 import net.minestom.server.instance.block.Block
 import world.cepi.kstom.Manager
+import world.cepi.kstom.Manager.block
 import world.cepi.kstom.util.asPos
 import world.cepi.kstom.util.asVec
 import world.cepi.particle.Particle
@@ -27,7 +28,7 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
         return lastSandEntity?.position?.sub(0.5, 0.0, 0.5)
     }
 
-    override fun setBlockAnimated(point: Point, block: Block, lastPoint: Point, lastBlock: Block) {
+    override fun setBlockAnimated(point: Point, block: Block, lastPoint: Point) {
         val timeToAnimate = 0.3
 
         val actualLastPoint = getLastPos() ?: lastPoint
@@ -65,16 +66,5 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
 
             lastSandEntity = null
         }.delay(Duration.ofMillis((timeToAnimate * 1000L).toLong())).schedule()
-    }
-
-    override fun destroyBlockAnimated(point: Point, block: Block) {
-        val fallingBlock = Entity(EntityType.FALLING_BLOCK)
-        val fallingBlockMeta = fallingBlock.entityMeta as FallingBlockMeta
-        game.instance.setBlock(point, Block.AIR)
-
-        fallingBlock.scheduleRemove(Duration.ofSeconds(2))
-        fallingBlock.velocity = Vec(0.0, 10.0, 0.0)
-        fallingBlockMeta.block = block
-        fallingBlock.setInstance(game.instance, point.add(0.5, 0.0, 0.5))
     }
 }

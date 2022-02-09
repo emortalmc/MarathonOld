@@ -7,10 +7,10 @@ import net.minestom.server.instance.block.Block
 
 abstract class BlockAnimator(val game: Game) {
 
-    abstract fun setBlockAnimated(point: Point, block: Block, lastPoint: Point, lastBlock: Block)
+    abstract fun setBlockAnimated(point: Point, block: Block, lastPoint: Point)
 
-    open fun destroyBlockAnimated(point: Point, lastBlock: Block) {
-        game.breakBlock(point, lastBlock)
+    open fun destroyBlockAnimated(point: Point) {
+        //game.breakBlock(point, lastBlock)
         game.instance.setBlock(point, Block.AIR)
     }
 
