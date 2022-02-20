@@ -45,6 +45,8 @@ object Top10Command : Kommand({
                 else -> Style.style(NamedTextColor.GRAY)
             }
 
+            val bps = (it.value.score.toDouble() / it.value.time) * 1000
+
             message.append(
                 Component.text()
                     .append(Component.text("\n${i}", color))
@@ -53,6 +55,9 @@ object Top10Command : Kommand({
                     .append(Component.space())
                     .append(Component.text(it.value.score, scoreColor))
                     .append(Component.text(" (${formattedTime})", NamedTextColor.DARK_GRAY))
+                    .append(Component.space())
+                    .append(Component.text("%.2f".format(bps), NamedTextColor.DARK_GRAY))
+                    .append(Component.text("bps", NamedTextColor.DARK_GRAY))
             )
 
             if (i == 3) message.append(Component.newline())
