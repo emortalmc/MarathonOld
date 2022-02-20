@@ -71,6 +71,8 @@ object Top10Command : Kommand({
                 val formattedTime: String = MarathonGame.DATE_FORMAT.format(Date(highscore?.time ?: 0))
                 val placement = MarathonExtension.storage?.getPlacementAsync(highscorePoints) ?: 0
 
+                val bps = (highscorePoints.toDouble() / (highscore?.time ?: 0)) * 1000
+
                 message.append(
                     Component.text()
                         .append(Component.text(" \n\n${placement}", NamedTextColor.AQUA, TextDecoration.BOLD))
@@ -79,6 +81,8 @@ object Top10Command : Kommand({
                         .append(Component.space())
                         .append(Component.text(highscorePoints, NamedTextColor.AQUA, TextDecoration.BOLD))
                         .append(Component.text(" (${formattedTime})", NamedTextColor.DARK_GRAY))
+                        .append(Component.text("%.2f".format(bps), NamedTextColor.DARK_GRAY))
+                        .append(Component.text("bps", NamedTextColor.DARK_GRAY))
                 )
             }
         }
