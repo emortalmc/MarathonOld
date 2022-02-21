@@ -3,7 +3,6 @@ package dev.emortal.marathon.game
 import dev.emortal.immortal.game.Game
 import dev.emortal.immortal.game.GameOptions
 import dev.emortal.marathon.MarathonExtension
-import dev.emortal.marathon.SoundSettingGUI
 import dev.emortal.marathon.animation.BlockAnimator
 import dev.emortal.marathon.animation.FallingSandAnimator
 import dev.emortal.marathon.db.Highscore
@@ -21,13 +20,15 @@ import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Player
+import net.minestom.server.event.inventory.InventoryPreClickEvent
+import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.instance.Instance
-import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
-import net.minestom.server.item.ItemStack
+import net.minestom.server.item.Enchantment
+import net.minestom.server.item.ItemHideFlag
 import net.minestom.server.item.Material
 import net.minestom.server.scoreboard.Sidebar
 import net.minestom.server.sound.SoundEvent
@@ -36,7 +37,6 @@ import net.minestom.server.timer.Task
 import net.minestom.server.utils.NamespaceID
 import net.minestom.server.utils.time.TimeUnit
 import world.cepi.kstom.Manager
-import world.cepi.kstom.Manager.block
 import world.cepi.kstom.adventure.noItalic
 import world.cepi.kstom.event.listenOnly
 import world.cepi.kstom.item.item
@@ -46,51 +46,50 @@ import world.cepi.kstom.util.playSound
 import world.cepi.kstom.util.roundToBlock
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
-import world.cepi.particle.data.Color
 import world.cepi.particle.data.OffsetAndSpeed
-import world.cepi.particle.extra.Dust
-import world.cepi.particle.renderer.Renderer
 import world.cepi.particle.showParticle
 import java.text.SimpleDateFormat
 import java.time.Duration
 import java.util.*
 import kotlin.math.pow
+import kotlin.math.roundToInt
 
 class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     companion object {
         val SPAWN_POINT = Pos(0.5, 150.0, 0.5)
-        val DATE_FORMAT = SimpleDateFormat("mm:ss")
+        val dateFormat = SimpleDateFormat("mm:ss")
+        val accurateDateFormat = SimpleDateFormat("mm:ss.SSS")
 
-        val paletteTag = Tag.String("palette")
-
-        val soundSettingsInventory = SoundSettingGUI()
+        val paletteTag = Tag.Integer("palette")
     }
 
     val generator: Generator = LegacyGenerator
     val animation: BlockAnimator = FallingSandAnimator(this)
-    var pointSoundEffect: SoundEvent = SoundEvent.BLOCK_NOTE_BLOCK_BASS
-
-    var targetY = 150
-    var targetX = 0
-
-    var breakingTask: Task? = null
-    var currentBreakingProgress = 0
-
-    var actionBarTask: Task? = null
-
-    var finalBlockPos: Point = Pos(0.0, 149.0, 0.0)
 
     // Amount of blocks in front of the player
     var length = 8
+    var targetY = 150
+    var targetX = 0
+
+    var actionBarTask: Task? = null
+    var breakingTask: Task? = null
+    var currentBreakingProgress = 0
+
+    var finalBlockPos: Point = Pos(0.0, 149.0, 0.0)
 
     var lastBlockTimestamp = 0L
     var startTimestamp = -1L
 
     var score = 0
     var combo = 0
+    var target = -1
 
-    var blockPalette = BlockPalette.GRASS
+    private var highscore: Highscore? = null
+    private var passedHighscore = false
+    var passedTarget = true
+
+    var blockPalette = BlockPalette.OVERWORLD
         set(value) {
             if (blockPalette == value) return
 
@@ -108,11 +107,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     var blocks = mutableListOf<Pair<Point, Block>>()
 
     override var spawnPosition = SPAWN_POINT
-
-
-    private var highscore: Highscore? = null
-    private var passedHighscore = false
-
 
     init {
         scoreboard?.createLine(
@@ -159,14 +153,16 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         BlockPalette.values().forEachIndexed { i, it ->
             val item = item(it.displayItem) {
-                setTag(paletteTag, it.name)
+                setTag(paletteTag, it.ordinal)
                 displayName(it.displayName.noItalic())
             }
 
             player.inventory.setItemStack(i + 2, item)
         }
-        player.inventory.setItemStack(8, item(Material.NOTE_BLOCK) {
-            displayName(Component.text("Sound Selector").noItalic())
+        player.inventory.setItemStack(8, item(Material.MUSIC_DISC_BLOCKS) {
+            displayName(Component.text("Music", NamedTextColor.GOLD).noItalic())
+            enchantment(Enchantment.INFINITY, 1)
+            hideFlag(ItemHideFlag.HIDE_ENCHANTS)
         })
     }
 
@@ -174,15 +170,22 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         destroy()
     }
 
-    override fun registerEvents() {
-        eventNode.listenOnly<PlayerUseItemEvent> {
-            if (this.itemStack.material == Material.NOTE_BLOCK) {
+    override fun registerEvents() = with(eventNode) {
+        listenOnly<ItemDropEvent> {
+            isCancelled = true
+        }
+        listenOnly<InventoryPreClickEvent> {
+            isCancelled = true
+        }
+
+        listenOnly<PlayerUseItemEvent> {
+            if (this.itemStack.material == Material.MUSIC_DISC_BLOCKS) {
                 this.isCancelled = true
-                player.openInventory(soundSettingsInventory.inventory)
+                player.chat("/music")
             }
         }
 
-        eventNode.listenOnly<PlayerMoveEvent> {
+        listenOnly<PlayerMoveEvent> {
             if (newPosition.y() < (blocks.map { it.first }.minOf { it.y() }) - 3) {
                 reset()
                 return@listenOnly
@@ -201,10 +204,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             generateNextBlock(index, true)
         }
 
-        eventNode.listenOnly<PlayerChangeHeldSlotEvent> {
-            val palette = BlockPalette.valueOf(
-                player.inventory.getItemStack(slot.toInt()).getTag(paletteTag) ?: return@listenOnly
-            )
+        listenOnly<PlayerChangeHeldSlotEvent> {
+            val palette = BlockPalette.values().get(player.inventory.getItemStack(slot.toInt()).getTag(paletteTag) ?: return@listenOnly)
 
             if (blockPalette == palette) return@listenOnly
 
@@ -229,6 +230,10 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             instance.setBlock(it.first, Block.AIR)
         }
         blocks.clear()
+        animation.tasks.forEach {
+            it.cancel()
+        }
+        animation.tasks.clear()
 
         instance.entities.filter { it !is Player }.forEach { it.remove() }
 
@@ -236,10 +241,10 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         breakingTask = null
 
         val previousScore = score
-        val highscore = MarathonExtension.storage?.getHighscoreAsync(players.first().uuid)?.score ?: 0
 
-        if (previousScore == highscore && previousScore != 0) {
-            players.first().showTitle(
+        val highscoreScore = highscore?.score ?: 0
+        if (previousScore == highscoreScore && previousScore != 0) {
+            showTitle(
                 Title.title(
                     Component.text("F", NamedTextColor.RED, TextDecoration.BOLD),
                     Component.empty(),
@@ -248,12 +253,12 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             )
 
             val millisTaken = System.currentTimeMillis() - startTimestamp
-            val formattedTime: String = DATE_FORMAT.format(Date(millisTaken))
+            val formattedTime: String = dateFormat.format(Date(millisTaken))
 
-            players.first().sendMessage(
+            sendMessage(
                 Component.text()
                     .append(Component.text("\nYou didn't beat your previous highscore of ", NamedTextColor.GRAY))
-                    .append(Component.text(highscore, NamedTextColor.GREEN))
+                    .append(Component.text(highscoreScore, NamedTextColor.GREEN))
                     .append(Component.text(" in ", NamedTextColor.GRAY))
                     .append(Component.text(formattedTime, NamedTextColor.GOLD))
                     .append(Component.text(" because you literally died one block before", NamedTextColor.GRAY))
@@ -270,18 +275,18 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             )
         }
 
-        if (previousScore > highscore) {
+        if (previousScore > highscoreScore) {
             val millisTaken = System.currentTimeMillis() - startTimestamp
-            val formattedTime: String = DATE_FORMAT.format(Date(millisTaken))
+            val formattedTime: String = dateFormat.format(Date(millisTaken))
 
             val placement = MarathonExtension.storage?.getPlacementAsync(previousScore) ?: 0
 
-            players.first().sendMessage(
+            sendMessage(
                 Component.text()
                     .append(Component.text("\nYou beat your previous highscore of ", NamedTextColor.GRAY))
-                    .append(Component.text(highscore, NamedTextColor.GREEN))
+                    .append(Component.text(highscoreScore, NamedTextColor.GREEN))
                     .append(Component.text(" by ", NamedTextColor.GRAY))
-                    .append(Component.text("${previousScore - highscore} points", NamedTextColor.GREEN))
+                    .append(Component.text("${previousScore - highscoreScore} points", NamedTextColor.GREEN))
                     .append(Component.text(" in ", NamedTextColor.GRAY))
                     .append(Component.text(formattedTime, NamedTextColor.GOLD))
                     .append(Component.text("\nYour new highscore is ", NamedTextColor.LIGHT_PURPLE))
@@ -306,8 +311,13 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                     .build()
             )
 
-            MarathonExtension.storage?.setHighscore(players.first().uuid, Highscore(previousScore, millisTaken))
+            val newHighscoreObject = Highscore(previousScore, millisTaken)
+            highscore = newHighscoreObject
+            MarathonExtension.storage?.setHighscore(players.first().uuid, newHighscoreObject)
         }
+
+        passedHighscore = false
+        passedTarget = false
 
         score = 0
         combo = 0
@@ -346,9 +356,23 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
             score += times
 
+            if (target != -1 && !passedTarget && score >= target) {
+                passedTarget = true
+
+                val millisTaken: Long = if (startTimestamp == -1L) 0 else System.currentTimeMillis() - startTimestamp
+                val formattedTime: String = accurateDateFormat.format(Date(millisTaken))
+
+                playSound(Sound.sound(SoundEvent.ENTITY_PLAYER_LEVELUP, Sound.Source.MASTER, 0.5f, 2f))
+                sendMessage(
+                    Component.text()
+                        .append(Component.text("You met your target score in ", NamedTextColor.GRAY))
+                        .append(Component.text(formattedTime, NamedTextColor.LIGHT_PURPLE))
+                )
+            }
+
             val highscorePoints = highscore?.score ?: 0
             if (!passedHighscore && score > highscorePoints) {
-                players.first().sendMessage(
+                sendMessage(
                     Component.text()
                         .append(Component.text("\nYou beat your previous highscore of ", NamedTextColor.GRAY))
                         .append(Component.text(highscorePoints, NamedTextColor.GREEN))
@@ -356,7 +380,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                         .append(Component.text("\n"))
                         .armify()
                 )
-                players.first().playSound(Sound.sound(SoundEvent.ENTITY_VILLAGER_CELEBRATE, Sound.Source.MASTER, 1f, 1f))
+                playSound(Sound.sound(SoundEvent.ENTITY_VILLAGER_CELEBRATE, Sound.Source.MASTER, 1f, 1f))
 
                 passedHighscore = true
             }
@@ -365,7 +389,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 Title.title(
                     Component.empty(),
                     Component.text(score, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD),
-                    Title.Times.of(Duration.ZERO, Duration.ofMillis(200), Duration.ofMillis(200))
+                    Title.Times.of(Duration.ZERO, Duration.ofMillis(500), Duration.ofMillis(100))
                 )
             )
 
@@ -431,15 +455,17 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     private fun updateActionBar() {
         val millisTaken: Long = if (startTimestamp == -1L) 0 else System.currentTimeMillis() - startTimestamp
-        val formattedTime: String = DATE_FORMAT.format(Date(millisTaken))
-        //val secondsTaken = (millisTaken / 1000.0).coerceAtLeast(1.0)
-        //val scorePerSecond = (score / secondsTaken * 100).roundToInt() / 100.0
+        val formattedTime: String = dateFormat.format(Date(millisTaken))
+        val secondsTaken = millisTaken / 1000.0
+        val scorePerSecond = if (score < 2) "-.--" else ((score / secondsTaken * 10.0).roundToInt() / 10.0).coerceAtLeast(0.0)
 
         val message: Component = Component.text()
             .append(Component.text(score, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
             .append(Component.text(" points", NamedTextColor.DARK_PURPLE))
             .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
             .append(Component.text(formattedTime, NamedTextColor.GRAY))
+            .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+            .append(Component.text("${scorePerSecond}bps", NamedTextColor.GRAY))
             .build()
 
         sendActionBar(message)
@@ -448,7 +474,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     fun playSound(pitch: Float) {
         playSound(
             Sound.sound(
-                pointSoundEffect,
+                SoundEvent.BLOCK_NOTE_BLOCK_BASS,
                 Sound.Source.MASTER,
                 3f,
                 pitch

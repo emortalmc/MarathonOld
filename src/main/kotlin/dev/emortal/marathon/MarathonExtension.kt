@@ -4,6 +4,8 @@ import dev.emortal.immortal.config.ConfigHelper
 import dev.emortal.immortal.game.GameManager
 import dev.emortal.immortal.game.GameOptions
 import dev.emortal.immortal.game.WhenToRegisterEvents
+import dev.emortal.marathon.commands.SetScoreCommand
+import dev.emortal.marathon.commands.SetTargetCommand
 import dev.emortal.marathon.commands.Top10Command
 import dev.emortal.marathon.config.DatabaseConfig
 import dev.emortal.marathon.db.MySQLStorage
@@ -57,20 +59,24 @@ class MarathonExtension : Extension() {
             GameOptions(
                 maxPlayers = 8,
                 minPlayers = 2,
-                countdownSeconds = 0,
+                //countdownSeconds = 0,
                 showsJoinLeaveMessages = true
             )
         )
 
+        SetTargetCommand.register()
+        SetScoreCommand.register()
         Top10Command.register()
 
-        logger.info("Initialized!")
+        logger.info("[${origin.name}] Initialized!")
     }
 
     override fun terminate() {
+        SetTargetCommand.unregister()
+        SetScoreCommand.unregister()
         Top10Command.unregister()
 
-        logger.info("Terminated!")
+        logger.info("[${origin.name}] Terminated!")
     }
 
 }

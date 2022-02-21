@@ -1,4 +1,4 @@
-package dev.emortal.marathon.utils
+package dev.emortal.marathon.game
 
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -13,7 +13,7 @@ enum class BlockPalette(
     val soundEffect: SoundEvent,
     vararg val blocks: Block
 ) {
-    GRASS(
+    OVERWORLD(
         Material.GRASS_BLOCK,
         Component.text("Grass", NamedTextColor.GREEN),
         SoundEvent.BLOCK_GRASS_BREAK,
@@ -21,7 +21,38 @@ enum class BlockPalette(
         Block.OAK_LOG,
         Block.BIRCH_LOG,
         Block.OAK_LEAVES,
-        Block.BIRCH_LEAVES
+        Block.BIRCH_LEAVES,
+        Block.DIRT,
+        Block.MOSS_BLOCK
+    ),
+
+    THEEND(
+        Material.END_STONE,
+        Component.text("End", NamedTextColor.LIGHT_PURPLE),
+        SoundEvent.ENTITY_ENDERMAN_TELEPORT,
+        Block.END_STONE,
+        Block.END_STONE_BRICKS,
+        Block.PURPUR_BLOCK,
+        Block.PURPUR_PILLAR,
+        Block.OBSIDIAN,
+    ),
+
+    NETHER(
+        Material.NETHERRACK,
+        Component.text("Nether", NamedTextColor.RED),
+        SoundEvent.BLOCK_NETHERRACK_BREAK,
+        Block.NETHERRACK,
+        Block.NETHERRACK,
+        Block.NETHERRACK,
+        Block.NETHER_QUARTZ_ORE,
+        Block.NETHER_GOLD_ORE,
+        Block.BASALT,
+        Block.BLACKSTONE,
+        Block.CRACKED_NETHER_BRICKS,
+        Block.NETHER_BRICKS,
+        Block.MAGMA_BLOCK,
+        Block.GLOWSTONE,
+        Block.GILDED_BLACKSTONE
     ),
 
     CAVE(

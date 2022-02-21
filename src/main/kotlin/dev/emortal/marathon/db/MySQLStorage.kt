@@ -46,13 +46,11 @@ class MySQLStorage : Storage() {
             statement.executeUpdate()
             statement.close()
 
-            val statement2 = conn.prepareStatement("INSERT INTO marathon VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE highscore=?, time=?")
+            val statement2 = conn.prepareStatement("INSERT INTO marathon VALUES(?, ?, ?)")
 
             statement2.setBinaryStream(1, player.toInputStream())
             statement2.setInt(2, highscore.score)
             statement2.setLong(3, highscore.time)
-            statement2.setInt(4, highscore.score)
-            statement2.setLong(5, highscore.time)
 
             statement2.executeUpdate()
             statement2.close()

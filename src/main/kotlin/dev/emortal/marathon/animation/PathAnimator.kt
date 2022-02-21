@@ -7,6 +7,7 @@ import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.metadata.other.FallingBlockMeta
 import net.minestom.server.instance.block.Block
+import net.minestom.server.timer.Task
 import world.cepi.kstom.Manager
 import world.cepi.kstom.Manager.block
 import world.cepi.kstom.util.asPos
@@ -21,6 +22,7 @@ import java.time.Duration
 
 class PathAnimator(game: Game) : BlockAnimator(game) {
 
+    override val tasks = mutableListOf<Task>()
     var lastSandEntity: Entity? = null
 
     private fun getLastPos(): Point? {

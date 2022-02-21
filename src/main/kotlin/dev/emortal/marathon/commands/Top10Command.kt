@@ -26,7 +26,7 @@ object Top10Command : Kommand({
         highscores.forEach {
             val playerUsername = AcquaintanceExtension.playerCache[it.key.toString()] ?: "???"
 
-            val formattedTime: String = MarathonGame.DATE_FORMAT.format(Date(it.value.time))
+            val formattedTime: String = MarathonGame.dateFormat.format(Date(it.value.time))
 
             val color = when (i) {
                 1 -> Style.style(NamedTextColor.GOLD, TextDecoration.BOLD)
@@ -63,7 +63,7 @@ object Top10Command : Kommand({
             if (!highscores.keys.contains(player.uuid)) {
                 val highscore = MarathonExtension.storage?.getHighscoreAsync(player.uuid)
                 val highscorePoints = highscore?.score ?: 0
-                val formattedTime: String = MarathonGame.DATE_FORMAT.format(Date(highscore?.time ?: 0))
+                val formattedTime: String = MarathonGame.dateFormat.format(Date(highscore?.time ?: 0))
                 val placement = MarathonExtension.storage?.getPlacementAsync(highscorePoints) ?: 0
 
                 message.append(
