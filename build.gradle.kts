@@ -38,7 +38,7 @@ dependencies {
 
     // Compile Minestom into project
     compileOnly("com.github.Minestom:Minestom:2e02dfd4d8")
-    compileOnly("com.github.EmortalMC:Immortal:f1b5abec41")
+    compileOnly("com.github.EmortalMC:Immortal:81dfdace2b")
 
     compileOnly("mysql:mysql-connector-java:8.0.28")
     compileOnly("com.zaxxer:HikariCP:5.0.1")

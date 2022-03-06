@@ -81,7 +81,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     var lastBlockTimestamp = 0L
     var startTimestamp = -1L
 
-    var score = 0
+    var score = -1
     var combo = 0
     var target = -1
 
@@ -187,8 +187,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         listenOnly<PlayerMoveEvent> {
             if (newPosition.y() < (blocks.map { it.first }.minOf { it.y() }) - 3) {
+                player.teleport(SPAWN_POINT)
                 reset()
-                return@listenOnly
             }
 
             val posUnderPlayer = newPosition.sub(0.0, 1.0, 0.0).roundToBlock().asPos()
@@ -224,7 +224,13 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         actionBarTask?.cancel()
     }
 
+    override fun spectatorJoin(player: Player) {
+        player.teleport(players.first().position)
+    }
+
     private fun reset() = runBlocking {
+        if (score == 0) return@runBlocking
+
         blocks.forEach {
             if (it.first == Block.DIAMOND_BLOCK) return@forEach
             instance.setBlock(it.first, Block.AIR)
@@ -325,7 +331,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         blocks.add(Pair(finalBlockPos, Block.DIAMOND_BLOCK))
 
-        players.forEach {
+        getPlayers().forEach {
             it.velocity = Vec.ZERO
             it.teleport(SPAWN_POINT)
         }
@@ -397,11 +403,11 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             createBreakingTask()
             updateActionBar()
         }
-        repeat(times) { generateNextBlock() }
+        repeat(times) { generateNextBlock(inGame) }
         lastBlockTimestamp = System.currentTimeMillis()
     }
 
-    fun generateNextBlock() {
+    fun generateNextBlock(inGame: Boolean = true) {
         if (blocks.size > length) {
             animation.destroyBlockAnimated(blocks[0].first)
 
@@ -417,7 +423,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         val newPaletteBlockPos = finalBlockPos
 
         val lastBlock = blocks.last()
-        animation.setBlockAnimated(newPaletteBlockPos, newPaletteBlock, lastBlock.first)
+        if (inGame) animation.setBlockAnimated(newPaletteBlockPos, newPaletteBlock, lastBlock.first)
+        else instance.setBlock(newPaletteBlockPos, newPaletteBlock)
 
         blocks.add(Pair(newPaletteBlockPos, newPaletteBlock))
 

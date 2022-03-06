@@ -93,9 +93,11 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
     override fun registerEvents() {
 
         eventNode.listenOnly<PlayerMoveEvent> {
-            val blocks = racerMap[player]?.blocks ?: return@listenOnly
+            val racer = racerMap[player]
+            val blocks = racer?.blocks ?: return@listenOnly
 
             if (newPosition.y() < (blocks.minOf { it.y() }) - 3) {
+                player.teleport(racer.spawnPos)
                 reset(player, true)
                 return@listenOnly
             }
@@ -170,6 +172,8 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     private fun reset(player: Player, inGame: Boolean) = runBlocking {
         val racer = racerMap[player] ?: return@runBlocking
+
+        if (racer.score == 0) return@runBlocking
 
         racer.blocks.forEach {
             instance.setBlock(it, Block.AIR)

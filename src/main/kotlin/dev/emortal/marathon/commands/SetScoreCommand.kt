@@ -1,7 +1,7 @@
 package dev.emortal.marathon.commands
 
 import dev.emortal.acquaintance.AcquaintanceExtension
-import dev.emortal.immortal.util.PermissionUtils.hasLuckPermission
+import dev.emortal.immortal.luckperms.PermissionUtils.hasLuckPermission
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.db.Highscore
 import net.kyori.adventure.text.Component
@@ -33,6 +33,8 @@ object SetScoreCommand : Kommand({
             UUID.fromString(uuid),
             Highscore(!score, (((!mins * 60) + !secs) * 1000).toLong())
         )
+
+        sender.sendMessage("Lol we set their score to ${!score} hahaha")
     }
 
 }, "setscore")
