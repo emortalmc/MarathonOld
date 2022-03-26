@@ -1,7 +1,7 @@
 package dev.emortal.marathon.game
 
+import dev.emortal.immortal.config.GameOptions
 import dev.emortal.immortal.game.Game
-import dev.emortal.immortal.game.GameOptions
 import dev.emortal.immortal.util.MinestomRunnable
 import dev.emortal.marathon.animation.BlockAnimator
 import dev.emortal.marathon.animation.FallingSandAnimator
@@ -88,6 +88,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     override fun playerLeave(player: Player) {
         racerMap.remove(player)
+        scoreboard?.removeLine("${player.username}ScoreLine")
     }
 
     override fun registerEvents() {

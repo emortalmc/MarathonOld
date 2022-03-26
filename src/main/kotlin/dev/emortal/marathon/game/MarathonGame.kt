@@ -1,7 +1,7 @@
 package dev.emortal.marathon.game
 
+import dev.emortal.immortal.config.GameOptions
 import dev.emortal.immortal.game.Game
-import dev.emortal.immortal.game.GameOptions
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.animation.BlockAnimator
 import dev.emortal.marathon.animation.FallingSandAnimator
@@ -186,7 +186,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         }
 
         listenOnly<PlayerMoveEvent> {
-            if (newPosition.y() < (blocks.map { it.first }.minOf { it.y() }) - 3) {
+            if (newPosition.y() < (blocks.map { it.first }.minOfOrNull { it.y() } ?: 3.0) - 3) {
                 player.teleport(SPAWN_POINT)
                 reset()
             }
@@ -236,6 +236,15 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             instance.setBlock(it.first, Block.AIR)
         }
         blocks.clear()
+
+        score = 0
+        combo = 0
+        finalBlockPos = Pos(0.0, 149.0, 0.0)
+
+        blocks.add(Pair(finalBlockPos, Block.DIAMOND_BLOCK))
+        instance.setBlock(finalBlockPos, Block.DIAMOND_BLOCK)
+        generateNextBlock(length, false)
+
         animation.tasks.forEach {
             it.cancel()
         }
@@ -325,20 +334,10 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         passedHighscore = false
         passedTarget = false
 
-        score = 0
-        combo = 0
-        finalBlockPos = Pos(0.0, 149.0, 0.0)
-
-        blocks.add(Pair(finalBlockPos, Block.DIAMOND_BLOCK))
-
         getPlayers().forEach {
             it.velocity = Vec.ZERO
             it.teleport(SPAWN_POINT)
         }
-
-        instance.setBlock(finalBlockPos, Block.DIAMOND_BLOCK)
-
-        generateNextBlock(length, false)
 
         startTimestamp = -1
         updateActionBar()

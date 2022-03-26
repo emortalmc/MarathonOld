@@ -1,8 +1,8 @@
 package dev.emortal.marathon
 
 import dev.emortal.immortal.config.ConfigHelper
+import dev.emortal.immortal.config.GameOptions
 import dev.emortal.immortal.game.GameManager
-import dev.emortal.immortal.game.GameOptions
 import dev.emortal.immortal.game.WhenToRegisterEvents
 import dev.emortal.marathon.commands.SetScoreCommand
 import dev.emortal.marathon.commands.SetTargetCommand
@@ -16,8 +16,8 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.extensions.Extension
+import java.awt.SystemColor.text
 import java.nio.file.Path
-import java.util.*
 
 class MarathonExtension : Extension() {
     companion object {
@@ -35,7 +35,6 @@ class MarathonExtension : Extension() {
         }
 
         GameManager.registerGame<MarathonGame>(
-            eventNode,
             "marathon",
             Component.text("Marathon", NamedTextColor.RED, TextDecoration.BOLD),
             showsInSlashPlay = true,
@@ -50,7 +49,6 @@ class MarathonExtension : Extension() {
         )
 
         GameManager.registerGame<MarathonRacingGame>(
-            eventNode,
             "marathonracing",
             Component.text("Marathon Racing", NamedTextColor.RED, TextDecoration.BOLD),
             showsInSlashPlay = true,
