@@ -14,8 +14,6 @@ repositories {
 
     maven(url = "https://jitpack.io")
     maven(url = "https://repo.spongepowered.org/maven")
-    maven(url = "https://repo.minestom.com/repository/maven-public/")
-    maven(url = "https://repo.velocitypowered.com/snapshots/")
 }
 
 dependencies {
