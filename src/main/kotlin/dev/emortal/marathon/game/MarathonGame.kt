@@ -96,6 +96,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             playSound(Sound.sound(value.soundEffect, Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
 
             blocks.forEachIndexed { i, block ->
+                if (block == Block.DIAMOND_BLOCK) return@forEachIndexed
                 val newBlock = value.blocks.random()
                 instance.setBlock(block.first, newBlock)
                 blocks[i] = Pair(block.first, newBlock)
@@ -159,11 +160,11 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
             player.inventory.setItemStack(i + 2, item)
         }
-        player.inventory.setItemStack(8, item(Material.MUSIC_DISC_BLOCKS) {
-            displayName(Component.text("Music", NamedTextColor.GOLD).noItalic())
-            enchantment(Enchantment.INFINITY, 1)
-            hideFlag(ItemHideFlag.HIDE_ENCHANTS)
-        })
+        //player.inventory.setItemStack(8, item(Material.MUSIC_DISC_BLOCKS) {
+        //    displayName(Component.text("Music", NamedTextColor.GOLD).noItalic())
+        //    enchantment(Enchantment.INFINITY, 1)
+        //    hideFlag(ItemHideFlag.HIDE_ENCHANTS)
+        //})
     }
 
     override fun playerLeave(player: Player) {
@@ -237,6 +238,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         }
         blocks.clear()
 
+        val previousScore = score
         score = 0
         combo = 0
         finalBlockPos = Pos(0.0, 149.0, 0.0)
@@ -255,7 +257,14 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         breakingTask?.cancel()
         breakingTask = null
 
-        val previousScore = score
+        passedHighscore = false
+        passedTarget = false
+
+        getPlayers().forEach {
+            it.velocity = Vec.ZERO
+            it.teleport(SPAWN_POINT)
+        }
+        updateActionBar()
 
         val highscoreScore = highscore?.score ?: 0
         if (previousScore == highscoreScore && previousScore != 0) {
@@ -331,16 +340,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             MarathonExtension.storage?.setHighscore(players.first().uuid, newHighscoreObject)
         }
 
-        passedHighscore = false
-        passedTarget = false
-
-        getPlayers().forEach {
-            it.velocity = Vec.ZERO
-            it.teleport(SPAWN_POINT)
-        }
-
         startTimestamp = -1
-        updateActionBar()
     }
 
     fun generateNextBlock(times: Int, inGame: Boolean) {
@@ -494,16 +494,11 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     override fun instanceCreate(): Instance {
-        //val sharedInstance = Manager.instance.createSharedInstance(MarathonExtension.parkourInstance)
-        //sharedInstance.time = 0
-        //sharedInstance.timeRate = 0
-
-        //return sharedInstance
-
         val dimension = Manager.dimensionType.getDimension(NamespaceID.from("fullbright"))!!
         val newInstance = Manager.instance.createInstanceContainer(dimension)
         newInstance.time = 0
         newInstance.timeRate = 0
+        newInstance.timeUpdate = null
         newInstance.setBlock(0, 149, 0, Block.DIAMOND_BLOCK)
 
         return newInstance

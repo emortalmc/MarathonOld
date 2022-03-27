@@ -1,8 +1,7 @@
 package dev.emortal.marathon.commands
 
-import dev.emortal.acquaintance.AcquaintanceExtension
+import dev.emortal.immortal.util.getCachedUsername
 import dev.emortal.marathon.MarathonExtension
-import dev.emortal.marathon.db.MySQLStorage
 import dev.emortal.marathon.game.MarathonGame
 import dev.emortal.marathon.utils.armify
 import net.kyori.adventure.text.Component
@@ -24,7 +23,7 @@ object Top10Command : Kommand({
 
         var i = 1
         highscores.forEach {
-            val playerUsername = AcquaintanceExtension.playerCache[it.key.toString()] ?: "???"
+            val playerUsername = it.key.getCachedUsername()
 
             val formattedTime: String = MarathonGame.dateFormat.format(Date(it.value.time))
 
@@ -80,7 +79,7 @@ object Top10Command : Kommand({
                         .append(Component.text(player.username, NamedTextColor.DARK_AQUA))
                         .append(Component.space())
                         .append(Component.text(highscorePoints, NamedTextColor.AQUA, TextDecoration.BOLD))
-                        .append(Component.text(" (${formattedTime})", NamedTextColor.DARK_GRAY))
+                        .append(Component.text(" (${formattedTime}) ", NamedTextColor.DARK_GRAY))
                         .append(Component.text("%.2f".format(bps), NamedTextColor.DARK_GRAY))
                         .append(Component.text("bps", NamedTextColor.DARK_GRAY))
                 )
@@ -91,4 +90,4 @@ object Top10Command : Kommand({
         sender.sendMessage(message.armify())
     }
 
-}, "top10", "leaderboard")
+}, "top10", "leaderboard", "lb")

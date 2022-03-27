@@ -21,13 +21,13 @@ dependencies {
     //compileOnly(kotlin("reflect"))
 
     compileOnly("com.github.Minestom:Minestom:71b6e8df90")
-    compileOnly("com.github.EmortalMC:Immortal:3bf837efb2")
+    compileOnly("com.github.EmortalMC:Immortal:abd2fc9ac4")
 
     compileOnly("mysql:mysql-connector-java:8.0.28")
     compileOnly("com.zaxxer:HikariCP:5.0.1")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
 
-    compileOnly("com.github.EmortalMC:Acquaintance:6987f0b3f2")
+    //compileOnly("com.github.EmortalMC:Acquaintance:6987f0b3f2")
 
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
 }

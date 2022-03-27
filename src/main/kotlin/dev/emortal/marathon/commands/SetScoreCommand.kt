@@ -1,6 +1,5 @@
 package dev.emortal.marathon.commands
 
-import dev.emortal.acquaintance.AcquaintanceExtension
 import dev.emortal.immortal.luckperms.PermissionUtils.hasLuckPermission
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.db.Highscore
@@ -26,11 +25,9 @@ object SetScoreCommand : Kommand({
         }
 
         val username = !playerArgument
-        val uuid = AcquaintanceExtension.playerCache.filterValues { it == username }.firstNotNullOfOrNull { it.key }
-            ?: return@syntax
 
         MarathonExtension.storage!!.setHighscore(
-            UUID.fromString(uuid),
+            UUID.fromString(username),
             Highscore(!score, (((!mins * 60) + !secs) * 1000).toLong())
         )
 
