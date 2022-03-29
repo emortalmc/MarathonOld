@@ -5,10 +5,11 @@ import dev.emortal.marathon.utils.breakBlock
 import net.minestom.server.coordinate.Point
 import net.minestom.server.instance.block.Block
 import net.minestom.server.timer.Task
+import java.util.concurrent.ConcurrentHashMap
 
 abstract class BlockAnimator(val game: Game) {
 
-    abstract val tasks: MutableList<Task>
+    val tasks: MutableSet<Task> = ConcurrentHashMap.newKeySet()
 
     abstract fun setBlockAnimated(point: Point, block: Block, lastPoint: Point)
 

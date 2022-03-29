@@ -1,6 +1,6 @@
 package dev.emortal.marathon.commands
 
-import dev.emortal.immortal.util.getCachedUsername
+import dev.emortal.acquaintance.RelationshipManager.getCachedUsername
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.game.MarathonGame
 import dev.emortal.marathon.utils.armify
@@ -23,7 +23,7 @@ object Top10Command : Kommand({
 
         var i = 1
         highscores.forEach {
-            val playerUsername = it.key.getCachedUsername()
+            val playerUsername = it.key.getCachedUsername() ?: "???"
 
             val formattedTime: String = MarathonGame.dateFormat.format(Date(it.value.time))
 

@@ -38,6 +38,7 @@ import world.cepi.particle.showParticle
 import java.text.SimpleDateFormat
 import java.time.Duration
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.pow
 
 class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
@@ -63,7 +64,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     var firstPlace: ParkourRacer? = null
 
-    val racerMap = mutableMapOf<Player, ParkourRacer>()
+    val racerMap = ConcurrentHashMap<Player, ParkourRacer>()
 
     private var timerTask: Task? = null
     private var endGameTask: Task? = null
@@ -98,7 +99,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
             val blocks = racer?.blocks ?: return@listenOnly
 
             if (newPosition.y() < (blocks.minOf { it.y() }) - 3) {
-                player.teleport(racer.spawnPos)
+                player.teleport(racer.playerPos)
                 reset(player, true)
                 return@listenOnly
             }
@@ -206,13 +207,14 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
                 "${player.username}ScoreLine",
                 0
             )*/
+        } else {
+            player.teleport(racer.playerPos)
         }
 
         val diamondBlockPos = racer.spawnPos.sub(0.0, 1.0, 0.0)
         racer.blocks.add(diamondBlockPos)
 
         player.velocity = Vec.ZERO
-        player.teleport(racer.spawnPos)
 
         instance.setBlock(diamondBlockPos, Block.DIAMOND_BLOCK)
 
@@ -306,10 +308,10 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     private fun createBreakingTask(racer: ParkourRacer) {
         racer.breakingTask?.cancel()
-        racer.breakingTask = object : MinestomRunnable(timer = timer, delay = Duration.ofSeconds(1), repeat = Duration.ofMillis(500)) {
+        racer.breakingTask = object : MinestomRunnable(coroutineScope = coroutineScope, delay = Duration.ofSeconds(1), repeat = Duration.ofMillis(500)) {
             var currentBreakingProgress = 0
 
-            override fun run() {
+            override suspend fun run() {
                 if (currentBreakingProgress > 8) {
                     cancel()
                     createBreakingTask(racer)

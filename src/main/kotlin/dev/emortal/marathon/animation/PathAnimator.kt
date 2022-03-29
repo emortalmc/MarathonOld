@@ -22,7 +22,6 @@ import java.time.Duration
 
 class PathAnimator(game: Game) : BlockAnimator(game) {
 
-    override val tasks = mutableListOf<Task>()
     var lastSandEntity: Entity? = null
 
     private fun getLastPos(): Point? {

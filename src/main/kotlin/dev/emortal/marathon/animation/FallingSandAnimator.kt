@@ -14,8 +14,6 @@ import java.time.Duration
 
 class FallingSandAnimator(game: Game) : BlockAnimator(game) {
 
-    override val tasks = mutableListOf<Task>()
-
     override fun setBlockAnimated(point: Point, block: Block, lastPoint: Point) {
         val distanceToFall = 2.0
 

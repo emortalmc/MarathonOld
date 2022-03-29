@@ -13,6 +13,7 @@ import dev.emortal.marathon.db.MySQLStorage
 import dev.emortal.marathon.db.Storage
 import dev.emortal.marathon.game.MarathonGame
 import dev.emortal.marathon.game.MarathonRacingGame
+import kotlinx.coroutines.GlobalScope
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -49,8 +50,8 @@ class MarathonExtension : Extension() {
             }
             return threadDump.toString()
         }
-        object : MinestomRunnable(repeat = Duration.ofMinutes(20), timer = defaultTimer) {
-            override fun run() {
+        object : MinestomRunnable(repeat = Duration.ofMinutes(20), coroutineScope = GlobalScope) {
+            override suspend fun run() {
                 logger.info("------ NEW DUMP \\/\\/\\/ ${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))}")
                 logger.info(threadDump(true, true))
             }

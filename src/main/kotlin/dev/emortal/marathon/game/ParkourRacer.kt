@@ -6,6 +6,9 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 
 class ParkourRacer(val player: Player, val spawnPos: Pos) {
+
+    val playerPos = spawnPos.add(0.5, 0.0, 0.5)
+
     var score = -1
         set(value) {
             if (value > highscore) highscore = value

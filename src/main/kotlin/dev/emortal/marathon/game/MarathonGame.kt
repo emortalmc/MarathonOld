@@ -206,7 +206,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         }
 
         listenOnly<PlayerChangeHeldSlotEvent> {
-            val palette = BlockPalette.values().get(player.inventory.getItemStack(slot.toInt()).getTag(paletteTag) ?: return@listenOnly)
+            val palette = BlockPalette.values()[player.inventory.getItemStack(slot.toInt()).getTag(paletteTag) ?: return@listenOnly]
 
             if (blockPalette == palette) return@listenOnly
 
