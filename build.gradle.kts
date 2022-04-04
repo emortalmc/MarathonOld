@@ -25,7 +25,7 @@ dependencies {
 
     compileOnly("mysql:mysql-connector-java:8.0.28")
     compileOnly("com.zaxxer:HikariCP:5.0.1")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")
 
     compileOnly("com.github.EmortalMC:Acquaintance:b07cb2e120")
 
