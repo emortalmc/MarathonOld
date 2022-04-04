@@ -42,20 +42,6 @@ class MarathonExtension : Extension() {
         if (databaseConfig.enabled) {
             storage = MySQLStorage()
         }
-        fun threadDump(lockedMonitors: Boolean, lockedSynchronizers: Boolean): String {
-            val threadDump = StringBuffer(System.lineSeparator())
-            val threadMXBean: ThreadMXBean = ManagementFactory.getThreadMXBean()
-            for (threadInfo in threadMXBean.dumpAllThreads(lockedMonitors, lockedSynchronizers)) {
-                threadDump.append(threadInfo.toString())
-            }
-            return threadDump.toString()
-        }
-        object : MinestomRunnable(repeat = Duration.ofMinutes(20), coroutineScope = GlobalScope) {
-            override suspend fun run() {
-                logger.info("------ NEW DUMP \\/\\/\\/ ${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))}")
-                logger.info(threadDump(true, true))
-            }
-        }
 
         GameManager.registerGame<MarathonGame>(
             "marathon",
