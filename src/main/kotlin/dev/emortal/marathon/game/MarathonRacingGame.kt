@@ -331,7 +331,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     fun checkFirstPlace() {
         val highestScore = racerMap.values.maxByOrNull { it.highscore }
-        if (highestScore != null && firstPlace != highestScore) {
+        if (highestScore != null && firstPlace != highestScore && highestScore.score > (firstPlace?.score ?: 0)) {
             firstPlace = highestScore
 
             sendMessage(
