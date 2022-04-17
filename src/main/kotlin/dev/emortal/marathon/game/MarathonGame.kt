@@ -29,6 +29,7 @@ import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.item.Enchantment
 import net.minestom.server.item.ItemHideFlag
+import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.scoreboard.Sidebar
 import net.minestom.server.sound.SoundEvent
@@ -39,6 +40,7 @@ import net.minestom.server.utils.time.TimeUnit
 import world.cepi.kstom.Manager
 import world.cepi.kstom.adventure.noItalic
 import world.cepi.kstom.event.listenOnly
+import world.cepi.kstom.item.displayName
 import world.cepi.kstom.item.item
 import world.cepi.kstom.util.asPos
 import world.cepi.kstom.util.asVec
@@ -153,10 +155,13 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         )
 
         BlockPalette.values().forEachIndexed { i, it ->
-            val item = item(it.displayItem) {
-                setTag(paletteTag, it.ordinal)
-                displayName(it.displayName.noItalic())
-            }
+            val item = ItemStack.builder(it.displayItem)
+                .displayName(it.displayName)
+                .meta { meta ->
+                    meta.setTag(paletteTag, it.ordinal)
+                    meta
+                }
+                .build()
 
             player.inventory.setItemStack(i + 2, item)
         }
@@ -180,7 +185,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         }
 
         listenOnly<PlayerUseItemEvent> {
-            if (this.itemStack.material == Material.MUSIC_DISC_BLOCKS) {
+            if (this.itemStack.material() == Material.MUSIC_DISC_BLOCKS) {
                 this.isCancelled = true
                 player.chat("/music")
             }
@@ -272,7 +277,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 Title.title(
                     Component.text("F", NamedTextColor.RED, TextDecoration.BOLD),
                     Component.empty(),
-                    Title.Times.of(Duration.ZERO, Duration.ofSeconds(2), Duration.ofSeconds(1))
+                    Title.Times.times(Duration.ZERO, Duration.ofSeconds(2), Duration.ofSeconds(1))
                 )
             )
 
@@ -394,7 +399,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 Title.title(
                     Component.empty(),
                     Component.text(score, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD),
-                    Title.Times.of(Duration.ZERO, Duration.ofMillis(500), Duration.ofMillis(100))
+                    Title.Times.times(Duration.ZERO, Duration.ofMillis(500), Duration.ofMillis(100))
                 )
             )
 

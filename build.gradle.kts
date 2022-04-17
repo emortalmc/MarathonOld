@@ -9,7 +9,6 @@ plugins {
 }
 
 repositories {
-    // Use mavenCentral
     mavenCentral()
 
     maven(url = "https://jitpack.io")
@@ -17,18 +16,15 @@ repositories {
 }
 
 dependencies {
-    //compileOnly(kotlin("stdlib"))
-    //compileOnly(kotlin("reflect"))
-
-    compileOnly("com.github.Minestom:Minestom:b3ee3e2345")
-    compileOnly("com.github.EmortalMC:Immortal:2c323e7911")
+    compileOnly("com.github.Minestom:Minestom:c7bb9e14e5")
+    compileOnly("com.github.EmortalMC:Immortal:c2131030f7")
 
     compileOnly("mysql:mysql-connector-java:8.0.28")
     compileOnly("com.zaxxer:HikariCP:5.0.1")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")
 
     compileOnly("com.github.EmortalMC:Acquaintance:b07cb2e120")
 
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
 }
 

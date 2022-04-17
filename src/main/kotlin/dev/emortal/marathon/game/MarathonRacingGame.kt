@@ -256,7 +256,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
                 Title.title(
                     Component.empty(),
                     Component.text(racer.score, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD),
-                    Title.Times.of(Duration.ZERO, Duration.ofMillis(200), Duration.ofMillis(200))
+                    Title.Times.times(Duration.ZERO, Duration.ofMillis(200), Duration.ofMillis(200))
                 )
             )
 
