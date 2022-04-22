@@ -1,6 +1,7 @@
 package dev.emortal.marathon.animation
 
 import dev.emortal.immortal.game.Game
+import dev.emortal.immortal.util.MinestomRunnable
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -19,18 +20,19 @@ import world.cepi.particle.extra.Dust
 import world.cepi.particle.showParticle
 import world.cepi.particle.util.Vectors
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicReference
 
 class PathAnimator(game: Game) : BlockAnimator(game) {
 
-    var lastSandEntity: Entity? = null
+    var lastSandEntity: AtomicReference<Entity> = AtomicReference(null)
 
     private fun getLastPos(): Point? {
-        if (lastSandEntity != null && lastSandEntity!!.aliveTicks < 2) return null
-        return lastSandEntity?.position?.sub(0.5, 0.0, 0.5)
+        //if (lastSandEntity.get() == null) return null
+        return lastSandEntity.get()?.position?.sub(0.5, 0.0, 0.5)
     }
 
     override fun setBlockAnimated(point: Point, block: Block, lastPoint: Point) {
-        val timeToAnimate = 0.3
+        val timeToAnimate = 0.4
 
         val actualLastPoint = getLastPos() ?: lastPoint
 
@@ -45,12 +47,9 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
             .asVec()
             .normalize()
             .mul((1 / timeToAnimate) * 1.15 * point.distance(actualLastPoint))
-        fallingBlock.setInstance(game.instance, actualLastPoint.add(0.5, 0.0, 1.5))
-        fallingBlock.scheduleNextTick {
-            it.teleport(actualLastPoint.add(0.5, 0.0, 0.5).asPos())
+        fallingBlock.setInstance(game.instance, actualLastPoint.add(0.5, 0.0, 0.5)).thenRun {
+            lastSandEntity.set(fallingBlock)
         }
-
-        lastSandEntity = fallingBlock
 
         game.showParticle(
             Particle.particle(
@@ -61,11 +60,13 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
             ), Vectors(point.asVec().add(0.5, 0.5, 0.5), actualLastPoint.asVec().add(0.5, 0.5, 0.5), 0.35)
         )
 
-        Manager.scheduler.buildTask {
-            game.instance.setBlock(point, block)
-            fallingBlock.remove()
+        object : MinestomRunnable(coroutineScope = game.coroutineScope, delay = Duration.ofMillis((timeToAnimate * 1000L).toLong())) {
+            override suspend fun run() {
+                game.instance.setBlock(point, block)
+                fallingBlock.remove()
 
-            lastSandEntity = null
-        }.delay(Duration.ofMillis((timeToAnimate * 1000L).toLong())).schedule()
+                lastSandEntity.getAndUpdate { if (fallingBlock == it) null else it }
+            }
+        }
     }
 }

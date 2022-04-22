@@ -2,9 +2,11 @@ package dev.emortal.marathon.game
 
 import dev.emortal.immortal.config.GameOptions
 import dev.emortal.immortal.game.Game
+import dev.emortal.immortal.util.MinestomRunnable
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.animation.BlockAnimator
 import dev.emortal.marathon.animation.FallingSandAnimator
+import dev.emortal.marathon.animation.PathAnimator
 import dev.emortal.marathon.db.Highscore
 import dev.emortal.marathon.generator.Generator
 import dev.emortal.marathon.generator.LegacyGenerator
@@ -19,6 +21,8 @@ import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
+import net.minestom.server.entity.Entity
+import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.item.ItemDropEvent
@@ -53,6 +57,7 @@ import world.cepi.particle.showParticle
 import java.text.SimpleDateFormat
 import java.time.Duration
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
@@ -67,10 +72,10 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     val generator: Generator = LegacyGenerator
-    val animation: BlockAnimator = FallingSandAnimator(this)
+    val animation: BlockAnimator = PathAnimator(this)
 
     // Amount of blocks in front of the player
-    var length = 8
+    var length = 6
     var targetY = 150
     var targetX = 0
 
@@ -156,7 +161,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         BlockPalette.values().forEachIndexed { i, it ->
             val item = ItemStack.builder(it.displayItem)
-                .displayName(it.displayName)
+                .displayName(it.displayName.noItalic())
                 .meta { meta ->
                     meta.setTag(paletteTag, it.ordinal)
                     meta
@@ -165,11 +170,11 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
             player.inventory.setItemStack(i + 2, item)
         }
-        //player.inventory.setItemStack(8, item(Material.MUSIC_DISC_BLOCKS) {
-        //    displayName(Component.text("Music", NamedTextColor.GOLD).noItalic())
-        //    enchantment(Enchantment.INFINITY, 1)
-        //    hideFlag(ItemHideFlag.HIDE_ENCHANTS)
-        //})
+        player.inventory.setItemStack(8, item(Material.MUSIC_DISC_BLOCKS) {
+            displayName(Component.text("Music", NamedTextColor.GOLD).noItalic())
+            enchantment(Enchantment.INFINITY, 1)
+            hideFlag(ItemHideFlag.HIDE_ENCHANTS)
+        })
     }
 
     override fun playerLeave(player: Player) {
@@ -192,6 +197,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         }
 
         listenOnly<PlayerMoveEvent> {
+            refreshSpectatorPosition(newPosition.add(0.0, 1.0, 0.0))
+
             if (newPosition.y() < (blocks.map { it.first }.minOfOrNull { it.y() } ?: 3.0) - 3) {
                 player.teleport(SPAWN_POINT)
                 reset()
@@ -230,8 +237,16 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         actionBarTask?.cancel()
     }
 
+    val spectatorBoatMap = ConcurrentHashMap<UUID, Entity>()
+
     override fun spectatorJoin(player: Player) {
-        player.teleport(players.first().position)
+        player.isAutoViewable = false
+        respawnBoat(player, player.position)
+    }
+
+    override fun spectatorLeave(player: Player) {
+        spectatorBoatMap[player.uuid]?.remove()
+        spectatorBoatMap.remove(player.uuid)
     }
 
     private fun reset() = runBlocking {
@@ -257,7 +272,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         }
         animation.tasks.clear()
 
-        instance.entities.filter { it !is Player }.forEach { it.remove() }
+        instance.entities.filter { it !is Player && it.entityType != EntityType.BOAT }.forEach { it.remove() }
 
         breakingTask?.cancel()
         breakingTask = null
@@ -265,7 +280,13 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         passedHighscore = false
         passedTarget = false
 
-        getPlayers().forEach {
+        spectators.forEach {
+            it.stopSpectating()
+            it.teleport(SPAWN_POINT)
+            respawnBoat(it, SPAWN_POINT)
+        }
+
+        players.forEach {
             it.velocity = Vec.ZERO
             it.teleport(SPAWN_POINT)
         }
@@ -411,6 +432,33 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         lastBlockTimestamp = System.currentTimeMillis()
     }
 
+    fun respawnBoat(spectator: Player, position: Pos) {
+        spectatorBoatMap[spectator.uuid]?.remove()
+        val entity = Entity(EntityType.BOAT)
+        entity.isInvisible = true
+        entity.setNoGravity(true)
+        entity.updateViewableRule { it == spectator }
+
+        var newPos = position.apply { _, y, z, _, _ -> Pos(blocks.sumOf { it.first.x() } / blocks.size, y + 3, z - 6) }
+        newPos = newPos.withDirection(position.sub(newPos))
+
+        entity.setInstance(instance, newPos).thenRun {
+            spectator.spectate(entity)
+            spectatorBoatMap[spectator.uuid] = entity
+        }
+    }
+
+    fun refreshSpectatorPosition(position: Pos) {
+        var newPos = position.apply { _, y, z, _, _ -> Pos(blocks.sumOf { it.first.x() } / blocks.size, y + 3, z - 6) }
+        newPos = newPos.withDirection(position.sub(newPos))
+        spectatorBoatMap.values.filter { it.isActive }.forEach {
+            it.teleport(newPos)
+        }
+        spectators.filter { it.isActive }.forEach {
+            it.teleport(newPos)
+        }
+    }
+
     fun generateNextBlock(inGame: Boolean = true) {
         if (blocks.size > length) {
             animation.destroyBlockAnimated(blocks[0].first)
@@ -423,7 +471,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         finalBlockPos = generator.getNextPosition(finalBlockPos, targetX, targetY, score)
 
-        val newPaletteBlock = blockPalette.blocks.random()
+        val newPaletteBlock = blockPalette.blocks.filter { it != blocks.last().second }.random()
         val newPaletteBlockPos = finalBlockPos
 
         val lastBlock = blocks.last()
@@ -468,7 +516,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         val millisTaken: Long = if (startTimestamp == -1L) 0 else System.currentTimeMillis() - startTimestamp
         val formattedTime: String = dateFormat.format(Date(millisTaken))
         val secondsTaken = millisTaken / 1000.0
-        val scorePerSecond = if (score < 2) "-.--" else ((score / secondsTaken * 10.0).roundToInt() / 10.0).coerceAtLeast(0.0)
+        val scorePerSecond = if (score < 2) "-.-" else ((score / secondsTaken * 10.0).roundToInt() / 10.0).coerceIn(0.0, 9.9)
 
         val message: Component = Component.text()
             .append(Component.text(score, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
