@@ -28,6 +28,7 @@ import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
 import net.minestom.server.event.player.PlayerMoveEvent
+import net.minestom.server.event.player.PlayerSwapItemEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
@@ -186,6 +187,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             isCancelled = true
         }
         listenOnly<InventoryPreClickEvent> {
+            isCancelled = true
+        }
+        listenOnly<PlayerSwapItemEvent> {
             isCancelled = true
         }
 
