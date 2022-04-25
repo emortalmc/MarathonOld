@@ -20,7 +20,7 @@ dependencies {
     compileOnly("com.github.EmortalMC:Immortal:a9f690cd78")
     compileOnly("com.github.EmortalMC:NBStom:fd3da7bf91")
 
-    compileOnly("mysql:mysql-connector-java:8.0.28")
+    compileOnly("mysql:mysql-connector-java:8.0.29")
     compileOnly("com.zaxxer:HikariCP:5.0.1")
 
     compileOnly("com.github.EmortalMC:Acquaintance:b07cb2e120")
@@ -40,7 +40,7 @@ tasks {
         archiveBaseName.set(project.name)
         mergeServiceFiles()
         minimize {
-            exclude(dependency("mysql:mysql-connector-java:8.0.28"))
+            exclude(dependency("mysql:mysql-connector-java:8.0.29"))
         }
     }
 
