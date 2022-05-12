@@ -1,8 +1,8 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "1.6.20"
-    kotlin("plugin.serialization") version "1.6.20"
+    id("org.jetbrains.kotlin.jvm") version "1.6.21"
+    kotlin("plugin.serialization") version "1.6.21"
     id("com.github.johnrengelman.shadow") version "7.1.2"
 
     java
@@ -26,7 +26,7 @@ dependencies {
     compileOnly("com.github.EmortalMC:Acquaintance:b07cb2e120")
 
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
 }
 
 tasks {
@@ -40,7 +40,7 @@ tasks {
         archiveBaseName.set(project.name)
         mergeServiceFiles()
         minimize {
-            exclude(dependency("mysql:mysql-connector-java:8.0.28"))
+            exclude(dependency("mysql:mysql-connector-java:8.0.29"))
         }
     }
 
