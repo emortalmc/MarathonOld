@@ -5,6 +5,9 @@ import dev.emortal.marathon.commands.DiscCommand.playingDiscTag
 import dev.emortal.marathon.commands.DiscCommand.stopPlayingTaskMap
 import dev.emortal.marathon.commands.DiscCommand.suggestions
 import dev.emortal.marathon.MarathonExtension
+import dev.emortal.marathon.commands.DiscCommand.performCommand
+import dev.emortal.marathon.commands.DiscCommand.stopPlaying
+import dev.emortal.marathon.gui.MusicPlayerInventory
 import dev.emortal.marathon.utils.MusicDisc
 import dev.emortal.nbstom.NBS
 import net.kyori.adventure.sound.Sound
@@ -34,13 +37,10 @@ object DiscCommand : Kommand({
 
     // If no arguments given, open inventory
     default {
-        val musicPlayerInventory = MarathonExtension.playerMusicInvMap[player] ?: return@default
-
         player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
-        player.openInventory(musicPlayerInventory)
+        player.openInventory(MusicPlayerInventory.inventory)
     }
 
-    val refresh by literal
     val stop by literal
 
     val discArgument = ArgumentType.StringArray("disc").suggest {
@@ -49,6 +49,30 @@ object DiscCommand : Kommand({
 
 
     syntax(stop) {
+        stopPlaying(player)
+    }
+
+    syntax(discArgument) {
+        performCommand(player, (!discArgument).joinToString(separator = " "))
+    }
+}, "disc", "music") {
+
+    val stopPlayingTaskMap = HashMap<Player, Task>()
+    private val playingDiscTag = Tag.Integer("playingDisc")
+
+    private var nbsSongs: List<String> = listOf()
+    private var suggestions: List<String> = listOf()
+
+    fun refreshSongs() {
+        try {
+            nbsSongs = Files.list(Path.of("./nbs/")).collect(Collectors.toUnmodifiableList()).map { it.nameWithoutExtension }
+            suggestions = MusicDisc.values().map { it.shortName } + nbsSongs
+        } catch (e: Exception) {
+            nbsSongs = listOf()
+        }
+    }
+
+    fun stopPlaying(player: Player) {
         val discValues = MusicDisc.values()
         val playingDisc = player.getTag(playingDiscTag)?.let { discValues[it] }
 
@@ -61,12 +85,8 @@ object DiscCommand : Kommand({
         NBS.stopPlaying(player)
     }
 
-    syntax(refresh) {
-        DiscCommand.refreshSongs()
-    }
+    fun performCommand(player: Player, disc: String) {
 
-    syntax(discArgument) {
-        val disc = context.get(discArgument).joinToString(separator = " ")
         val discValues = MusicDisc.values()
         val playingDisc = player.getTag(playingDiscTag)?.let { discValues[it] }
 
@@ -88,12 +108,12 @@ object DiscCommand : Kommand({
             player.playSound(Sound.sound(nowPlayingDisc.sound, Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
 
             stopPlayingTaskMap[player] = Manager.scheduler.buildTask {
-                player.chat("/disc stop")
+                stopPlaying(player)
             }.delay(Duration.ofSeconds(nowPlayingDisc.length.toLong())).schedule()
         } catch (e: IllegalArgumentException) {
             if (!nbsSongs.contains(disc)) {
-                sender.sendMessage(Component.text("Invalid song", NamedTextColor.RED))
-                return@syntax
+                player.sendMessage(Component.text("Invalid song", NamedTextColor.RED))
+                return
             }
 
             val nbs = NBS(Path.of("./nbs/${disc}.nbs"))
@@ -109,31 +129,14 @@ object DiscCommand : Kommand({
             }
 
             stopPlayingTaskMap[player] = Manager.scheduler.buildTask {
-                player.chat("/disc stop")
+                stopPlaying(player)
             }.delay(Duration.ofSeconds((nbs.length / nbs.tps).roundToLong())).schedule()
 
             discName = "${nbs.originalAuthor.ifEmpty { nbs.author }} - ${nbs.songName}"
         }
 
         player.sendActionBar("<gray>Playing: <aqua>${discName}</aqua>".asMini())
-
-
     }
-}, "disc", "music") {
 
-    val stopPlayingTaskMap = HashMap<Player, Task>()
-    private val playingDiscTag = Tag.Integer("playingDisc")
-
-    private var nbsSongs: List<String> = listOf()
-    private var suggestions: List<String> = listOf()
-
-    fun refreshSongs() {
-        try {
-            nbsSongs = Files.list(Path.of("./nbs/")).collect(Collectors.toUnmodifiableList()).map { it.nameWithoutExtension }
-            suggestions = MusicDisc.values().map { it.shortName } + nbsSongs
-        } catch (e: Exception) {
-            nbsSongs = listOf()
-        }
-    }
 
 }

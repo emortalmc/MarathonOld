@@ -1,5 +1,6 @@
 package dev.emortal.marathon.gui
 
+import dev.emortal.marathon.commands.DiscCommand
 import dev.emortal.marathon.utils.MusicDisc
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -32,7 +33,6 @@ object MusicPlayerInventory {
                 .meta {
                     // For some reason the disc author lore requires this hide flag
                     it.hideFlag(ItemHideFlag.HIDE_POTION_EFFECTS)
-                    it
                 }
                 .build()
 
@@ -55,18 +55,14 @@ object MusicPlayerInventory {
             if (inventoryConditionResult.clickedItem == ItemStack.AIR) return@addInventoryCondition
 
             if (slot == 40) {
-                player.chat("/disc stop")
+                DiscCommand.stopPlaying(player)
                 return@addInventoryCondition
             }
 
-            val nowPlayingDisc = MusicDisc.fromMaterial(inventoryConditionResult.clickedItem.material)
+            val nowPlayingDisc = MusicDisc.fromMaterial(inventoryConditionResult.clickedItem.material())
                 ?: return@addInventoryCondition
 
-            player.chat("/disc ${nowPlayingDisc.shortName}")
-
-            inventory.title = inventoryTitle.append(
-                "  <gray>Playing: <aqua>${nowPlayingDisc.description}</aqua>".asMini()
-            )
+            DiscCommand.performCommand(player, nowPlayingDisc.shortName)
         }
 
         return inventory

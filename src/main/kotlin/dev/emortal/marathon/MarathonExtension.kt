@@ -43,8 +43,6 @@ class MarathonExtension : Extension() {
         val databaseConfigPath = Path.of("./marathon.json")
 
         var storage: Storage? = null
-
-        val playerMusicInvMap = ConcurrentHashMap<Player, Inventory>()
     }
 
     override fun initialize() {
@@ -82,13 +80,6 @@ class MarathonExtension : Extension() {
                 showsJoinLeaveMessages = true
             )
         )
-
-        eventNode.listenOnly<PlayerLoginEvent> {
-            playerMusicInvMap[player] = MusicPlayerInventory.inventory.clone()
-        }
-        eventNode.listenOnly<PlayerDisconnectEvent> {
-            playerMusicInvMap.remove(player)
-        }
 
         SetTargetCommand.register()
         SetScoreCommand.register()

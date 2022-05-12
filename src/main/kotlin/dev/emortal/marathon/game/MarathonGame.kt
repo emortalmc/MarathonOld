@@ -10,7 +10,10 @@ import dev.emortal.marathon.animation.PathAnimator
 import dev.emortal.marathon.db.Highscore
 import dev.emortal.marathon.generator.Generator
 import dev.emortal.marathon.generator.LegacyGenerator
+import dev.emortal.marathon.gui.MusicPlayerInventory
 import dev.emortal.marathon.utils.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -24,6 +27,7 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.metadata.other.FallingBlockMeta
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
@@ -36,6 +40,7 @@ import net.minestom.server.item.Enchantment
 import net.minestom.server.item.ItemHideFlag
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import net.minestom.server.registry.Registry.enchantment
 import net.minestom.server.scoreboard.Sidebar
 import net.minestom.server.sound.SoundEvent
 import net.minestom.server.tag.Tag
@@ -104,10 +109,13 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             playSound(Sound.sound(value.soundEffect, Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
 
             blocks.forEachIndexed { i, block ->
-                if (block == Block.DIAMOND_BLOCK) return@forEachIndexed
-                val newBlock = value.blocks.random()
+                if (block.second == Block.DIAMOND_BLOCK) return@forEachIndexed
+                val newBlock = value.blocks.filter { it != block.second }.random()
                 instance.setBlock(block.first, newBlock)
                 blocks[i] = Pair(block.first, newBlock)
+            }
+            instance.entities.filter { it !is Player }.forEach {
+                it.remove()
             }
 
             field = value
@@ -171,11 +179,17 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
             player.inventory.setItemStack(i + 2, item)
         }
-        player.inventory.setItemStack(8, item(Material.MUSIC_DISC_BLOCKS) {
-            displayName(Component.text("Music", NamedTextColor.GOLD).noItalic())
-            enchantment(Enchantment.INFINITY, 1)
-            hideFlag(ItemHideFlag.HIDE_ENCHANTS)
-        })
+        player.inventory.setItemStack(
+            8,
+            ItemStack.builder(Material.MUSIC_DISC_BLOCKS)
+                .displayName(Component.text("Music", NamedTextColor.GOLD).noItalic())
+                .meta { meta ->
+                    meta.enchantment(Enchantment.INFINITY, 1)
+                    meta.hideFlag(ItemHideFlag.HIDE_ENCHANTS)
+
+                }
+                .build()
+        )
     }
 
     override fun playerLeave(player: Player) {
@@ -196,14 +210,15 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         listenOnly<PlayerUseItemEvent> {
             if (this.itemStack.material() == Material.MUSIC_DISC_BLOCKS) {
                 this.isCancelled = true
-                player.chat("/music")
+                player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
+                player.openInventory(MusicPlayerInventory.inventory)
             }
         }
 
         listenOnly<PlayerMoveEvent> {
             refreshSpectatorPosition(newPosition.add(0.0, 1.0, 0.0))
 
-            if (newPosition.y() < (blocks.map { it.first }.minOfOrNull { it.y() } ?: 3.0) - 3) {
+            if (newPosition.y() < (blocks.minOfOrNull { it.first.y() } ?: 3.0) - 3) {
                 player.teleport(SPAWN_POINT)
                 reset()
             }

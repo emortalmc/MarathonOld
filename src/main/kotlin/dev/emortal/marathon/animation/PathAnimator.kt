@@ -3,15 +3,10 @@ package dev.emortal.marathon.animation
 import dev.emortal.immortal.game.Game
 import dev.emortal.immortal.util.MinestomRunnable
 import net.minestom.server.coordinate.Point
-import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.metadata.other.FallingBlockMeta
 import net.minestom.server.instance.block.Block
-import net.minestom.server.timer.Task
-import world.cepi.kstom.Manager
-import world.cepi.kstom.Manager.block
-import world.cepi.kstom.util.asPos
 import world.cepi.kstom.util.asVec
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
@@ -62,7 +57,7 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
 
         object : MinestomRunnable(coroutineScope = game.coroutineScope, delay = Duration.ofMillis((timeToAnimate * 1000L).toLong())) {
             override suspend fun run() {
-                game.instance.setBlock(point, block)
+                game.instance.setBlock(point, fallingBlockMeta.block)
                 fallingBlock.remove()
 
                 lastSandEntity.getAndUpdate { if (fallingBlock == it) null else it }

@@ -7,9 +7,7 @@ import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.metadata.other.FallingBlockMeta
 import net.minestom.server.instance.block.Block
-import net.minestom.server.timer.Task
 import world.cepi.kstom.Manager
-import world.cepi.kstom.Manager.block
 import java.time.Duration
 
 class FallingSandAnimator(game: Game) : BlockAnimator(game) {

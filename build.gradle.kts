@@ -16,11 +16,11 @@ repositories {
 }
 
 dependencies {
-    compileOnly("com.github.Minestom:Minestom:c7bb9e14e5")
-    compileOnly("com.github.EmortalMC:Immortal:a9f690cd78")
+    compileOnly("com.github.Minestom:Minestom:f774cc3b0f")
+    compileOnly("com.github.EmortalMC:Immortal:e9c693da83")
     compileOnly("com.github.EmortalMC:NBStom:fd3da7bf91")
 
-    compileOnly("mysql:mysql-connector-java:8.0.28")
+    compileOnly("mysql:mysql-connector-java:8.0.29")
     compileOnly("com.zaxxer:HikariCP:5.0.1")
 
     compileOnly("com.github.EmortalMC:Acquaintance:b07cb2e120")
