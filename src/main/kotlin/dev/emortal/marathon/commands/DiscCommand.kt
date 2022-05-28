@@ -1,12 +1,8 @@
 package dev.emortal.marathon.commands
 
-import dev.emortal.marathon.commands.DiscCommand.nbsSongs
-import dev.emortal.marathon.commands.DiscCommand.playingDiscTag
-import dev.emortal.marathon.commands.DiscCommand.stopPlayingTaskMap
-import dev.emortal.marathon.commands.DiscCommand.suggestions
-import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.commands.DiscCommand.performCommand
 import dev.emortal.marathon.commands.DiscCommand.stopPlaying
+import dev.emortal.marathon.commands.DiscCommand.suggestions
 import dev.emortal.marathon.gui.MusicPlayerInventory
 import dev.emortal.marathon.utils.MusicDisc
 import dev.emortal.nbstom.NBS

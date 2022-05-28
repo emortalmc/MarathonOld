@@ -4,7 +4,6 @@ import net.minestom.server.adventure.audience.PacketGroupingAudience
 import net.minestom.server.coordinate.Point
 import net.minestom.server.instance.block.Block
 import net.minestom.server.network.packet.server.play.BlockBreakAnimationPacket
-import net.minestom.server.network.packet.server.play.BlockChangePacket
 import net.minestom.server.network.packet.server.play.EffectPacket
 
 //fun PacketGroupingAudience.setFakeBlock(point: Point, block: Block) {

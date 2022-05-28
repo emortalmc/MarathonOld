@@ -2,18 +2,16 @@ package dev.emortal.marathon.game
 
 import dev.emortal.immortal.config.GameOptions
 import dev.emortal.immortal.game.Game
-import dev.emortal.immortal.util.MinestomRunnable
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.animation.BlockAnimator
-import dev.emortal.marathon.animation.FallingSandAnimator
 import dev.emortal.marathon.animation.PathAnimator
 import dev.emortal.marathon.db.Highscore
 import dev.emortal.marathon.generator.Generator
 import dev.emortal.marathon.generator.LegacyGenerator
 import dev.emortal.marathon.gui.MusicPlayerInventory
-import dev.emortal.marathon.utils.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import dev.emortal.marathon.utils.armify
+import dev.emortal.marathon.utils.firsts
+import dev.emortal.marathon.utils.sendBlockDamage
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -27,7 +25,6 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
-import net.minestom.server.entity.metadata.other.FallingBlockMeta
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
@@ -40,18 +37,16 @@ import net.minestom.server.item.Enchantment
 import net.minestom.server.item.ItemHideFlag
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
-import net.minestom.server.registry.Registry.enchantment
 import net.minestom.server.scoreboard.Sidebar
 import net.minestom.server.sound.SoundEvent
 import net.minestom.server.tag.Tag
 import net.minestom.server.timer.Task
 import net.minestom.server.utils.NamespaceID
 import net.minestom.server.utils.time.TimeUnit
+import org.tinylog.kotlin.Logger
 import world.cepi.kstom.Manager
 import world.cepi.kstom.adventure.noItalic
 import world.cepi.kstom.event.listenOnly
-import world.cepi.kstom.item.displayName
-import world.cepi.kstom.item.item
 import world.cepi.kstom.util.asPos
 import world.cepi.kstom.util.asVec
 import world.cepi.kstom.util.playSound
@@ -75,6 +70,10 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         val accurateDateFormat = SimpleDateFormat("mm:ss.SSS")
 
         val paletteTag = Tag.Integer("palette")
+        val teleportingTag = Tag.Boolean("teleporting")
+
+
+
     }
 
     val generator: Generator = LegacyGenerator
@@ -102,7 +101,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     private var passedHighscore = false
     var passedTarget = true
 
-    var blockPalette = BlockPalette.OVERWORLD
+    var invalidateRun = false
+
+    var blockPalette = BlockPalette.RAINBOW
         set(value) {
             if (blockPalette == value) return
 
@@ -114,7 +115,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 instance.setBlock(block.first, newBlock)
                 blocks[i] = Pair(block.first, newBlock)
             }
-            instance.entities.filter { it !is Player }.forEach {
+            instance.entities.filter { it.entityType == EntityType.FALLING_BLOCK }.forEach {
                 it.remove()
             }
 
@@ -168,17 +169,17 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 .build()
         )
 
-        BlockPalette.values().forEachIndexed { i, it ->
-            val item = ItemStack.builder(it.displayItem)
-                .displayName(it.displayName.noItalic())
-                .meta { meta ->
-                    meta.setTag(paletteTag, it.ordinal)
-                    meta
-                }
-                .build()
-
-            player.inventory.setItemStack(i + 2, item)
-        }
+        //BlockPalette.values().forEachIndexed { i, it ->
+        //    val item = ItemStack.builder(it.displayItem)
+        //        .displayName(it.displayName.noItalic())
+        //        .meta { meta ->
+        //            meta.setTag(paletteTag, it.ordinal)
+        //            meta
+        //        }
+        //        .build()
+        //
+        //    player.inventory.setItemStack(i + 2, item)
+        //}
         player.inventory.setItemStack(
             8,
             ItemStack.builder(Material.MUSIC_DISC_BLOCKS)
@@ -219,9 +220,12 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             refreshSpectatorPosition(newPosition.add(0.0, 1.0, 0.0))
 
             if (newPosition.y() < (blocks.minOfOrNull { it.first.y() } ?: 3.0) - 3) {
-                player.teleport(SPAWN_POINT)
+                player.setTag(teleportingTag, true)
+                //player.teleport(SPAWN_POINT)
                 reset()
             }
+
+            if (!player.hasTag(teleportingTag)) checkInvalidPosition(player, newPosition)
 
             val posUnderPlayer = newPosition.sub(0.0, 1.0, 0.0).roundToBlock().asPos()
             val pos2UnderPlayer = newPosition.sub(0.0, 2.0, 0.0).roundToBlock().asPos()
@@ -271,11 +275,16 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     private fun reset() = runBlocking {
         if (score == 0) return@runBlocking
 
-        blocks.forEach {
-            if (it.first == Block.DIAMOND_BLOCK) return@forEach
-            instance.setBlock(it.first, Block.AIR)
+
+
+        blocks.forEach { block ->
+            if (block.first == Block.DIAMOND_BLOCK) return@forEach
+            instance.scheduleNextTick {
+                instance.setBlock(block.first, Block.AIR)
+            }
         }
         blocks.clear()
+
 
         val previousScore = score
         score = 0
@@ -284,7 +293,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         blocks.add(Pair(finalBlockPos, Block.DIAMOND_BLOCK))
         instance.setBlock(finalBlockPos, Block.DIAMOND_BLOCK)
-        generateNextBlock(length, false)
 
         animation.tasks.forEach {
             it.cancel()
@@ -307,89 +315,83 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         players.forEach {
             it.velocity = Vec.ZERO
-            it.teleport(SPAWN_POINT)
+            it.teleport(SPAWN_POINT).thenRun {
+                instance.scheduleNextTick {
+                    generateNextBlock(length, false)
+                }
+            }
         }
         updateActionBar()
 
-        val highscoreScore = highscore?.score ?: 0
-        if (previousScore == highscoreScore && previousScore != 0) {
-            showTitle(
-                Title.title(
-                    Component.text("F", NamedTextColor.RED, TextDecoration.BOLD),
-                    Component.empty(),
-                    Title.Times.times(Duration.ZERO, Duration.ofSeconds(2), Duration.ofSeconds(1))
+        val millisTaken = System.currentTimeMillis() - startTimestamp
+        val bps = (previousScore.toDouble() / millisTaken.toDouble()) * 1000.0
+        if (bps > 2.75 && previousScore > 30) invalidateRun = true
+
+        if (!invalidateRun) {
+            val highscoreScore = highscore?.score ?: 0
+
+            if (previousScore > highscoreScore) {
+                val millisTaken = System.currentTimeMillis() - startTimestamp
+                val formattedTime: String = dateFormat.format(Date(millisTaken))
+
+                val placement = MarathonExtension.storage?.getPlacementAsync(previousScore) ?: 0
+
+                playSound(Sound.sound(SoundEvent.ENTITY_PLAYER_LEVELUP, Sound.Source.MASTER, 1f, 0.7f), Sound.Emitter.self())
+                showTitle(
+                    Title.title(
+                        Component.empty(),
+                        Component.text("You beat your previous highscore!", NamedTextColor.GOLD),
+                        Title.Times.times(Duration.ofMillis(400), Duration.ofMillis(1500), Duration.ofMillis(1000))
+                    )
                 )
-            )
 
-            val millisTaken = System.currentTimeMillis() - startTimestamp
-            val formattedTime: String = dateFormat.format(Date(millisTaken))
+                sendMessage(
+                    Component.text()
+                        .append(Component.text("\nYou beat your previous highscore of ", NamedTextColor.GRAY))
+                        .append(Component.text(highscoreScore, NamedTextColor.GREEN))
+                        .append(Component.text(" by ", NamedTextColor.GRAY))
+                        .append(Component.text("${previousScore - highscoreScore} points", NamedTextColor.GREEN))
+                        .append(Component.text(" in ", NamedTextColor.GRAY))
+                        .append(Component.text(formattedTime, NamedTextColor.GOLD))
+                        .append(Component.text("\nYour new highscore is ", NamedTextColor.LIGHT_PURPLE))
+                        .append(Component.text(previousScore, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                        .append(Component.text("\n\nYou are now #${placement} on the leaderboard!", NamedTextColor.GOLD))
+                        .append(Component.text("\n"))
+                        .armify()
+                )
 
-            sendMessage(
-                Component.text()
-                    .append(Component.text("\nYou didn't beat your previous highscore of ", NamedTextColor.GRAY))
-                    .append(Component.text(highscoreScore, NamedTextColor.GREEN))
-                    .append(Component.text(" in ", NamedTextColor.GRAY))
-                    .append(Component.text(formattedTime, NamedTextColor.GOLD))
-                    .append(Component.text(" because you literally died one block before", NamedTextColor.GRAY))
-                    .append(Component.text("\nWe can't even show the new highscore, because you didn't get one (L)", NamedTextColor.LIGHT_PURPLE))
-                    .armify()
-            )
+                scoreboard?.updateLineContent(
+                    "highscoreLine",
+                    Component.text()
+                        .append(Component.text("Highscore: ", NamedTextColor.GRAY))
+                        .append(Component.text(previousScore, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+                        .build()
+                )
+                scoreboard?.updateLineContent(
+                    "placementLine",
+                    Component.text()
+                        .append(Component.text("#${placement}", NamedTextColor.GOLD))
+                        .append(Component.text(" on leaderboard", NamedTextColor.GRAY))
+                        .build()
+                )
 
-            scoreboard?.updateLineContent(
-                "highscoreLine",
-                Component.text()
-                    .append(Component.text("Your (not) Highscore: ", NamedTextColor.GRAY))
-                    .append(Component.text(previousScore, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
-                    .build()
-            )
+                val newHighscoreObject = Highscore(previousScore, millisTaken)
+                highscore = newHighscoreObject
+                MarathonExtension.storage?.setHighscore(players.first().uuid, newHighscoreObject)
+            }
+        } else {
+            // Player likely cheated, do not record score
+            Logger.info("Player ${players.first().username} had an invalid run. Score: ${previousScore}, bps: ${bps}")
         }
 
-        if (previousScore > highscoreScore) {
-            val millisTaken = System.currentTimeMillis() - startTimestamp
-            val formattedTime: String = dateFormat.format(Date(millisTaken))
-
-            val placement = MarathonExtension.storage?.getPlacementAsync(previousScore) ?: 0
-
-            sendMessage(
-                Component.text()
-                    .append(Component.text("\nYou beat your previous highscore of ", NamedTextColor.GRAY))
-                    .append(Component.text(highscoreScore, NamedTextColor.GREEN))
-                    .append(Component.text(" by ", NamedTextColor.GRAY))
-                    .append(Component.text("${previousScore - highscoreScore} points", NamedTextColor.GREEN))
-                    .append(Component.text(" in ", NamedTextColor.GRAY))
-                    .append(Component.text(formattedTime, NamedTextColor.GOLD))
-                    .append(Component.text("\nYour new highscore is ", NamedTextColor.LIGHT_PURPLE))
-                    .append(Component.text(previousScore, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
-                    .append(Component.text("\n\nYou are now #${placement} on the leaderboard!", NamedTextColor.GOLD))
-                    .append(Component.text("\n"))
-                    .armify()
-            )
-
-            scoreboard?.updateLineContent(
-                "highscoreLine",
-                Component.text()
-                    .append(Component.text("Highscore: ", NamedTextColor.GRAY))
-                    .append(Component.text(previousScore, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
-                    .build()
-            )
-            scoreboard?.updateLineContent(
-                "placementLine",
-                Component.text()
-                    .append(Component.text("#${placement}", NamedTextColor.LIGHT_PURPLE))
-                    .append(Component.text(" on leaderboard", NamedTextColor.GRAY))
-                    .build()
-            )
-
-            val newHighscoreObject = Highscore(previousScore, millisTaken)
-            highscore = newHighscoreObject
-            MarathonExtension.storage?.setHighscore(players.first().uuid, newHighscoreObject)
-        }
-
+        invalidateRun = false
+        players.first().removeTag(teleportingTag)
         startTimestamp = -1
     }
 
     fun generateNextBlock(times: Int, inGame: Boolean) {
         if (inGame) {
+
             if (startTimestamp == -1L) {
                 actionBarTask = Manager.scheduler.buildTask { updateActionBar() }
                     .repeat(Duration.ofSeconds(1))
@@ -479,8 +481,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     fun generateNextBlock(inGame: Boolean = true) {
+
         if (blocks.size > length) {
-            animation.destroyBlockAnimated(blocks[0].first)
+            animation.destroyBlockAnimated(blocks[0].first, blocks[0].second)
 
             blocks.removeAt(0)
         }
@@ -490,12 +493,17 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         finalBlockPos = generator.getNextPosition(finalBlockPos, targetX, targetY, score)
 
-        val newPaletteBlock = blockPalette.blocks.filter { it != blocks.last().second }.random()
+
+        //val newPaletteBlock = blockPalette.blocks.filter { it != blocks.last().second }.random()
+        val newPaletteBlock = blockPalette.blocks[(blockPalette.blocks.indexOf(blocks.last().second) + 1) % blockPalette.blocks.size]
         val newPaletteBlockPos = finalBlockPos
+
 
         val lastBlock = blocks.last()
         if (inGame) animation.setBlockAnimated(newPaletteBlockPos, newPaletteBlock, lastBlock.first)
-        else instance.setBlock(newPaletteBlockPos, newPaletteBlock)
+        else {
+            instance.setBlock(newPaletteBlockPos, newPaletteBlock)
+        }
 
         blocks.add(Pair(newPaletteBlockPos, newPaletteBlock))
 
@@ -549,6 +557,22 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         sendActionBar(message)
     }
 
+    fun checkInvalidPosition(player: Player, position: Pos) {
+
+        // Check for player too far up
+        if (!invalidateRun && blocks.maxOf { it.first.blockY() } + 3.3 < position.y) {
+            invalidateRun = true
+        }
+
+        // Check for player too far behind
+        if (blocks.minOf { it.first.blockZ() } - 5 > position.z) {
+            player.setTag(teleportingTag, true)
+            //player.teleport(SPAWN_POINT)
+            reset()
+        }
+
+    }
+
     fun playSound(pitch: Float) {
         playSound(
             Sound.sound(
@@ -566,12 +590,18 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     override fun instanceCreate(): Instance {
+
+        //val schematic: Schematic = SpongeSchematic().also {
+        //    it.read(FileInputStream(File("./marathonstarter.schem")))
+        //}
+
         val dimension = Manager.dimensionType.getDimension(NamespaceID.from("fullbright"))!!
         val newInstance = Manager.instance.createInstanceContainer(dimension)
         newInstance.time = 0
         newInstance.timeRate = 0
         newInstance.timeUpdate = null
         newInstance.setBlock(0, 149, 0, Block.DIAMOND_BLOCK)
+        //newInstance.chunkLoader = SchematicChunkLoader.builder().addSchematic(schematic).offset(0, 150, 0).build()
 
         return newInstance
     }

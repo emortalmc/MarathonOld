@@ -10,7 +10,6 @@ import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemHideFlag
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
-import world.cepi.kstom.adventure.asMini
 
 object MusicPlayerInventory {
     val inventory = init()

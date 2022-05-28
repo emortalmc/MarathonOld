@@ -98,7 +98,6 @@ enum class BlockPalette(
         Block.LIGHT_BLUE_WOOL,
         Block.CYAN_WOOL,
         Block.PINK_WOOL,
-        Block.MAGENTA_WOOL,
-        Block.PURPLE_WOOL
+        Block.MAGENTA_WOOL
     )
 }

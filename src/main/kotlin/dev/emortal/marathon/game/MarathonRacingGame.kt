@@ -7,7 +7,7 @@ import dev.emortal.marathon.animation.BlockAnimator
 import dev.emortal.marathon.animation.FallingSandAnimator
 import dev.emortal.marathon.generator.Generator
 import dev.emortal.marathon.generator.RacingGenerator
-import dev.emortal.marathon.utils.*
+import dev.emortal.marathon.utils.sendBlockDamage
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -270,7 +270,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
         val racer = racerMap[player] ?: return
 
         if (racer.blocks.size > length) {
-            animation.destroyBlockAnimated(racer.blocks.removeAt(0))
+            animation.destroyBlockAnimated(racer.blocks.removeAt(0), Block.ACACIA_WOOD)
         }
 
         val finalBlockPos = racer.blocks.last()

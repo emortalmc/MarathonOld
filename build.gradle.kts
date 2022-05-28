@@ -10,19 +10,20 @@ plugins {
 
 repositories {
     mavenCentral()
-
-    maven(url = "https://jitpack.io")
-    maven(url = "https://repo.spongepowered.org/maven")
+    maven("https://jitpack.io")
 }
 
 dependencies {
     compileOnly("com.github.Minestom:Minestom:f774cc3b0f")
-    compileOnly("com.github.EmortalMC:Immortal:e9c693da83")
+    compileOnly("com.github.EmortalMC:Immortal:eab3ac8420")
     compileOnly("com.github.EmortalMC:NBStom:fd3da7bf91")
 
     compileOnly("mysql:mysql-connector-java:8.0.29")
     compileOnly("com.zaxxer:HikariCP:5.0.1")
 
+    //implementation(files("libs/Blocky-1.0-SNAPSHOT.jar"))
+
+    //implementation("com.github.KrystilizeNevaDies:Scaffolding:2303491258")
     compileOnly("com.github.EmortalMC:Acquaintance:b07cb2e120")
 
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.1")

@@ -1,6 +1,8 @@
 package dev.emortal.marathon.commands
 
 import dev.emortal.acquaintance.RelationshipManager.getCachedUsername
+import dev.emortal.immortal.util.centerText
+import dev.emortal.immortal.util.parsed
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.game.MarathonGame
 import dev.emortal.marathon.utils.armify
@@ -19,44 +21,49 @@ object Top10Command : Kommand({
         val highscores = MarathonExtension.storage?.getTopHighscoresAsync() ?: return@defaultSuspending
 
         val message = Component.text()
-            .append(Component.text("Marathon Leaderboard\n", NamedTextColor.GOLD, TextDecoration.BOLD))
+            .append(Component.text(centerText("Marathon Leaderboard", bold = true), NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+            .append(Component.newline())
 
         var i = 1
         highscores.forEach {
             val playerUsername = it.key.getCachedUsername() ?: "???"
 
-            val formattedTime: String = MarathonGame.dateFormat.format(Date(it.value.time))
+            //val formattedTime: String = MarathonGame.dateFormat.format(Date(it.value.time))
 
             val color = when (i) {
                 1 -> Style.style(NamedTextColor.GOLD, TextDecoration.BOLD)
                 2 -> Style.style(TextColor.color(210, 210, 210), TextDecoration.BOLD)
                 3 -> Style.style(TextColor.color(205, 127, 50), TextDecoration.BOLD)
-                else -> Style.style(TextColor.color(120, 120, 120))
+                else -> Style.style(TextColor.color(140, 140, 140))
             }
             val nameColor = when (i) {
                 1 -> Style.style(NamedTextColor.GOLD)
                 2 -> Style.style(TextColor.color(210, 210, 210))
                 3 -> Style.style(TextColor.color(205, 127, 50))
-                else -> Style.style(TextColor.color(120, 120, 120))
+                else -> Style.style(TextColor.color(140, 140, 140))
             }
             val scoreColor = when (i) {
                 1,2,3 -> Style.style(NamedTextColor.LIGHT_PURPLE)
-                else -> Style.style(NamedTextColor.GRAY)
+                else -> Style.style(NamedTextColor.YELLOW)
+            }
+            val timesColor = when (i) {
+                1,2,3 -> Style.style(NamedTextColor.GRAY)
+                else -> Style.style(TextColor.color(110, 110, 110))
             }
 
             val bps = (it.value.score.toDouble() / it.value.time) * 1000
 
             message.append(
                 Component.text()
-                    .append(Component.text("\n${i}", color))
+                    .append(Component.text("\n #", color).decoration(TextDecoration.BOLD, false))
+                    .append(Component.text(i, color))
                     .append(Component.text(" - ", NamedTextColor.DARK_GRAY))
                     .append(Component.text(playerUsername, nameColor))
                     .append(Component.space())
                     .append(Component.text(it.value.score, scoreColor))
-                    .append(Component.text(" (${formattedTime})", NamedTextColor.DARK_GRAY))
-                    .append(Component.space())
-                    .append(Component.text("%.2f".format(bps), NamedTextColor.DARK_GRAY))
-                    .append(Component.text("bps", NamedTextColor.DARK_GRAY))
+                    .append(Component.text(" (${(it.value.time / 1000).parsed()}", timesColor))
+                    .append(Component.text("%.2f".format(bps), timesColor))
+                    .append(Component.text("bps)", timesColor))
             )
 
             if (i == 3) message.append(Component.newline())
