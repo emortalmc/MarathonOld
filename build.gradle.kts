@@ -15,7 +15,7 @@ repositories {
 
 dependencies {
     compileOnly("com.github.Minestom:Minestom:f774cc3b0f")
-    compileOnly("com.github.EmortalMC:Immortal:eab3ac8420")
+    compileOnly("com.github.EmortalMC:Immortal:2.0.0")
     compileOnly("com.github.EmortalMC:NBStom:fd3da7bf91")
 
     compileOnly("mysql:mysql-connector-java:8.0.29")
