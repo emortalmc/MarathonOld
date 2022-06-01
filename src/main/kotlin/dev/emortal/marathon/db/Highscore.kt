@@ -1,3 +1,4 @@
 package dev.emortal.marathon.db
 
-data class Highscore(val score: Int, val time: Long)
+@kotlinx.serialization.Serializable
+data class Highscore(val uuid: String, val score: Int, val timeTaken: Long, val timeSubmitted: Long)

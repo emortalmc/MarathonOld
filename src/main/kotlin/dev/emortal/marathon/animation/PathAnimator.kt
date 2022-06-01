@@ -51,7 +51,7 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
                 type = ParticleType.DUST,
                 count = 1,
                 data = OffsetAndSpeed(0f, 0f, 0f, 0f),
-                extraData = Dust(1f, 1f, 0f, 1f)
+                extraData = Dust(1f, 0f, 1f, 1.25f)
             ), Vectors(point.asVec().add(0.5, 0.5, 0.5), actualLastPoint.asVec().add(0.5, 0.5, 0.5), 0.35)
         )
 

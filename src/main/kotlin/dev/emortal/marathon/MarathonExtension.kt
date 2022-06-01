@@ -6,16 +6,15 @@ import dev.emortal.immortal.game.GameManager
 import dev.emortal.immortal.game.WhenToRegisterEvents
 import dev.emortal.marathon.commands.DiscCommand
 import dev.emortal.marathon.commands.SetScoreCommand
-import dev.emortal.marathon.commands.SetTargetCommand
 import dev.emortal.marathon.commands.Top10Command
 import dev.emortal.marathon.config.DatabaseConfig
-import dev.emortal.marathon.db.MySQLStorage
-import dev.emortal.marathon.db.Storage
+import dev.emortal.marathon.db.MongoStorage
 import dev.emortal.marathon.game.MarathonGame
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.extensions.Extension
+import org.litote.kmongo.serialization.SerializationClassMappingTypeService
 import java.nio.file.Path
 
 
@@ -24,14 +23,18 @@ class MarathonExtension : Extension() {
         var databaseConfig = DatabaseConfig()
         val databaseConfigPath = Path.of("./marathon.json")
 
-        var storage: Storage? = null
+        var mongoStorage: MongoStorage? = null
     }
 
     override fun initialize() {
         databaseConfig = ConfigHelper.initConfigFile(databaseConfigPath, databaseConfig)
 
         if (databaseConfig.enabled) {
-            storage = MySQLStorage()
+            // Required for some reason, idk - literally says to use it for minecraft plugins
+            System.setProperty("org.litote.mongo.mapping.service", SerializationClassMappingTypeService::class.qualifiedName!!)
+
+            mongoStorage = MongoStorage()
+            mongoStorage?.init()
         }
 
         GameManager.registerGame<MarathonGame>(
@@ -63,7 +66,6 @@ class MarathonExtension : Extension() {
             )
         )*/
 
-        SetTargetCommand.register()
         SetScoreCommand.register()
         Top10Command.register()
         DiscCommand.register()
@@ -73,7 +75,6 @@ class MarathonExtension : Extension() {
     }
 
     override fun terminate() {
-        SetTargetCommand.unregister()
         SetScoreCommand.unregister()
         Top10Command.unregister()
         DiscCommand.unregister()

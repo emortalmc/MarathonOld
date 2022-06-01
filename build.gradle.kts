@@ -14,12 +14,15 @@ repositories {
 }
 
 dependencies {
-    compileOnly("com.github.Minestom:Minestom:f774cc3b0f")
+    compileOnly("com.github.Minestom:Minestom:58b6e90142")
     compileOnly("com.github.EmortalMC:Immortal:eab3ac8420")
     compileOnly("com.github.EmortalMC:NBStom:fd3da7bf91")
 
-    compileOnly("mysql:mysql-connector-java:8.0.29")
-    compileOnly("com.zaxxer:HikariCP:5.0.1")
+
+    implementation("org.litote.kmongo:kmongo-coroutine-serialization:4.6.0")
+
+    //compileOnly("mysql:mysql-connector-java:8.0.29")
+    //compileOnly("com.zaxxer:HikariCP:5.0.1")
 
     //implementation(files("libs/Blocky-1.0-SNAPSHOT.jar"))
 
@@ -41,7 +44,7 @@ tasks {
         archiveBaseName.set(project.name)
         mergeServiceFiles()
         minimize {
-            exclude(dependency("mysql:mysql-connector-java:8.0.29"))
+            //exclude(dependency("mysql:mysql-connector-java:8.0.29"))
         }
     }
 

@@ -9,5 +9,6 @@ class DatabaseConfig(
     val port: String = "3306",
     val tableName: String = "",
     val username: String = "",
-    val password: String = ""
+    val password: String = "",
+    val connectionString: String = ""
 )

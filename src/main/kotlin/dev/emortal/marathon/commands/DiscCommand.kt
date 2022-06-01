@@ -54,7 +54,7 @@ object DiscCommand : Kommand({
 }, "disc", "music") {
 
     val stopPlayingTaskMap = HashMap<Player, Task>()
-    private val playingDiscTag = Tag.Integer("playingDisc")
+    val playingDiscTag = Tag.Integer("playingDisc")
 
     private var nbsSongs: List<String> = listOf()
     private var suggestions: List<String> = listOf()
@@ -78,21 +78,15 @@ object DiscCommand : Kommand({
         }
 
         stopPlayingTaskMap[player]?.cancel()
+        stopPlayingTaskMap.remove(player)
         NBS.stopPlaying(player)
     }
 
     fun performCommand(player: Player, disc: String) {
 
         val discValues = MusicDisc.values()
-        val playingDisc = player.getTag(playingDiscTag)?.let { discValues[it] }
 
-        playingDisc?.sound?.let {
-            player.stopSound(SoundStop.named(it))
-            player.removeTag(playingDiscTag)
-        }
-
-        stopPlayingTaskMap[player]?.cancel()
-        NBS.stopPlaying(player)
+        stopPlaying(player)
 
         var discName: String
         try {

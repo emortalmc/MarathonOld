@@ -3,6 +3,10 @@ package dev.emortal.marathon.commands
 import dev.emortal.immortal.luckperms.PermissionUtils.hasLuckPermission
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.db.Highscore
+import dev.emortal.marathon.db.MongoStorage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentWord
@@ -19,17 +23,26 @@ object SetScoreCommand : Kommand({
     val secs = ArgumentInteger("secs")
 
     syntax(playerArgument, score, mins, secs) {
-        if (!player.hasLuckPermission("marathon.setscore")) {
-            player.sendMessage(Component.text("No permission", NamedTextColor.RED))
+        if (!sender.hasLuckPermission("marathon.setscore")) {
+            sender.sendMessage(Component.text("No permission", NamedTextColor.RED))
+            return@syntax
+        }
+
+        if (MarathonExtension.mongoStorage == null) {
+            sender.sendMessage("Mongo storage is disabled")
             return@syntax
         }
 
         val username = !playerArgument
 
-        MarathonExtension.storage!!.setHighscore(
-            UUID.fromString(username),
-            Highscore(!score, (((!mins * 60) + !secs) * 1000).toLong())
-        )
+        CoroutineScope(Dispatchers.IO).launch {
+            val previousHighscore = MarathonExtension.mongoStorage!!.getHighscore(UUID.fromString(username), MongoStorage.leaderboard)
+
+            MarathonExtension.mongoStorage!!.setHighscore(
+                Highscore(username, !score, (((!mins * 60) + !secs) * 1000).toLong(), previousHighscore?.timeSubmitted ?: 0),
+                MongoStorage.leaderboard
+            )
+        }
 
         sender.sendMessage("Lol we set their score to ${!score} hahaha")
     }
