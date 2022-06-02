@@ -1,5 +1,11 @@
 {
   "extends": [
     "github>Project-Cepi/openvate"
+  ],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    }
   ]
 }
