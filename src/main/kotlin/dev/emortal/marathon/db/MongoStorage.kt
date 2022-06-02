@@ -102,30 +102,45 @@ class MongoStorage {
 
             object : MinestomRunnable(coroutineScope = mongoScope, delay = durationUntilTomorrow, repeat = durationUntilTomorrow) {
                 override suspend fun run() {
+                    val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                    val tomorrow = LocalDateTime.now().truncatedTo(ChronoUnit.DAYS).plusDays(1).toEpochSecond(ZoneOffset.UTC)
+
                     Logger.info("Cleared daily leaderboard!")
                     daily?.drop()
                     val newResetTimes = resetTimes.copy(dailyResetTimestamp = tomorrow)
                     resetCollection?.replaceOne("{}", resetTimes.copy(dailyResetTimestamp = tomorrow))
+
+                    repeat = Duration.ofSeconds(tomorrow - now)
                     resetTimes = newResetTimes
                 }
             }
 
             object : MinestomRunnable(coroutineScope = mongoScope, delay = durationUntilNextWeek, repeat = durationUntilNextWeek) {
                 override suspend fun run() {
+                    val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                    val nextWeek = LocalDateTime.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
+
                     Logger.info("Cleared weekly leaderboard!")
                     weekly?.drop()
-                    val newResetTimes = resetTimes.copy(weeklyResetTimestamp = tomorrow)
-                    resetCollection?.replaceOne("{}", resetTimes.copy(weeklyResetTimestamp = tomorrow))
+                    val newResetTimes = resetTimes.copy(weeklyResetTimestamp = nextWeek)
+                    resetCollection?.replaceOne("{}", resetTimes.copy(weeklyResetTimestamp = nextWeek))
+
+                    repeat = Duration.ofSeconds(nextWeek - now)
                     resetTimes = newResetTimes
                 }
             }
 
             object : MinestomRunnable(coroutineScope = mongoScope, delay = durationUntilNextMonth, repeat = durationUntilNextMonth) {
                 override suspend fun run() {
+                    val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                    val nextMonth = LocalDateTime.now().with(TemporalAdjusters.firstDayOfNextMonth()).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
+
                     Logger.info("Cleared monthly leaderboard!")
                     monthly?.drop()
-                    val newResetTimes = resetTimes.copy(monthlyResetTimestamp = tomorrow)
-                    resetCollection?.replaceOne("{}", resetTimes.copy(monthlyResetTimestamp = tomorrow))
+                    val newResetTimes = resetTimes.copy(monthlyResetTimestamp = nextMonth)
+                    resetCollection?.replaceOne("{}", resetTimes.copy(monthlyResetTimestamp = nextMonth))
+
+                    repeat = Duration.ofSeconds(nextMonth - now)
                     resetTimes = newResetTimes
                 }
             }
@@ -149,8 +164,14 @@ class MongoStorage {
             ?.limit(amount)
             ?.toList()
 
-    suspend fun getPlacement(score: Int, collection: CoroutineCollection<Highscore>?): Int =
+    suspend fun getPlacementByScore(score: Int, collection: CoroutineCollection<Highscore>?): Int =
         // Count scores that are greater than (gt) score
         (collection?.find(Highscore::score gt score)?.toFlow()?.count() ?: 0) + 1
+
+    suspend fun getPlacement(uuid: UUID, collection: CoroutineCollection<Highscore>?): Int? {
+        // Count scores that are greater than (gt) score
+        val highscore = getHighscore(uuid, collection) ?: return null
+        return (collection?.find(Highscore::score gt highscore.score)?.toFlow()?.count() ?: 0) + 1
+    }
 
 }

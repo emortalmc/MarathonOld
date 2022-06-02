@@ -8,7 +8,7 @@ inline fun <reified T : Enum<*>> enumValueOrNull(name: String): T? =
     T::class.java.enumConstants.firstOrNull { it.name == name }
 
 enum class TimeFrame(val lyName: String, val collection: CoroutineCollection<Highscore>?) {
-    GLOBAL("global", MongoStorage.leaderboard),
+    LIFETIME("lifetime", MongoStorage.leaderboard),
     DAILY("daily", MongoStorage.daily),
     WEEKLY("weekly", MongoStorage.weekly),
     MONTHLY("monthly", MongoStorage.monthly)

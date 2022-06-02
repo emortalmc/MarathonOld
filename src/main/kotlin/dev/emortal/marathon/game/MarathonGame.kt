@@ -110,9 +110,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     private var weeklyHighscore: Highscore? = null
     private var monthlyHighscore: Highscore? = null
 
-    private var dailyPlacement: Int = 0
-    private var weeklyPlacement: Int = 0
-    private var monthlyPlacement: Int = 0
+    private var dailyPlacement: Int? = 0
+    private var weeklyPlacement: Int? = 0
+    private var monthlyPlacement: Int? = 0
 
     private var passedHighscore = false
 
@@ -152,13 +152,13 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         monthlyHighscore = MarathonExtension.mongoStorage?.getHighscore(player.uuid, MongoStorage.monthly)
 
         val highscorePoints = highscore?.score ?: 0
-        val dailyPoints = dailyHighscore?.score ?: 0
-        val weeklyPoints = weeklyHighscore?.score ?: 0
-        val monthlyPoints = monthlyHighscore?.score ?: 0
-        val placement = MarathonExtension.mongoStorage?.getPlacement(highscorePoints, MongoStorage.leaderboard) ?: 0
-        dailyPlacement = MarathonExtension.mongoStorage?.getPlacement(dailyPoints, MongoStorage.daily) ?: 11
-        weeklyPlacement = MarathonExtension.mongoStorage?.getPlacement(weeklyPoints, MongoStorage.weekly) ?: 11
-        monthlyPlacement = MarathonExtension.mongoStorage?.getPlacement(monthlyPoints, MongoStorage.monthly) ?: 11
+//        val dailyPoints = dailyHighscore?.score ?: 0
+//        val weeklyPoints = weeklyHighscore?.score ?: 0
+//        val monthlyPoints = monthlyHighscore?.score ?: 0
+        val placement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.leaderboard) ?: 0
+        dailyPlacement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.daily)
+        weeklyPlacement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.weekly)
+        monthlyPlacement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.monthly)
 
         scoreboard?.createLine(
             Sidebar.ScoreboardLine(
@@ -182,7 +182,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         )
 
         var needsSpacer = false
-        if (dailyPlacement <= 10 && dailyHighscore != null) {
+        if (dailyPlacement != null && dailyPlacement!! <= 10 && dailyHighscore != null) {
             needsSpacer = true
             scoreboard?.createLine(
                 Sidebar.ScoreboardLine(
@@ -195,7 +195,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 )
             )
         }
-        if (weeklyPlacement <= 10 && weeklyHighscore != null) {
+        if (weeklyPlacement != null && weeklyPlacement!! <= 10 && weeklyHighscore != null) {
             needsSpacer = true
             scoreboard?.createLine(
                 Sidebar.ScoreboardLine(
@@ -208,7 +208,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 )
             )
         }
-        if (monthlyPlacement <= 10 && monthlyHighscore != null) {
+        if (monthlyPlacement != null && monthlyPlacement!! <= 10 && monthlyHighscore != null) {
             needsSpacer = true
             scoreboard?.createLine(
                 Sidebar.ScoreboardLine(
@@ -319,7 +319,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     override fun spectatorJoin(player: Player) {
         player.isAutoViewable = false
-        respawnBoat(player, players.first().position)
+        player.teleport(players.first().position).thenRun {
+            respawnBoat(player, players.first().position)
+        }
     }
 
     override fun spectatorLeave(player: Player) {
@@ -637,9 +639,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         val millisTaken = System.currentTimeMillis() - startTimestamp
         val newHighscoreObject = Highscore(player.uuid.toString(), score, millisTaken, System.currentTimeMillis())
 
-        // Check global (endless)
+        // Check lifetime
         if (score > highscoreScore) {
-            val placement = MarathonExtension.mongoStorage?.getPlacement(score, MongoStorage.leaderboard) ?: 0
+            val placement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.leaderboard) ?: 0
 
             playSound(Sound.sound(SoundEvent.ENTITY_PLAYER_LEVELUP, Sound.Source.MASTER, 1f, 0.7f), Sound.Emitter.self())
             showTitle(
@@ -656,7 +658,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                     .append(Component.text(highscoreScore, NamedTextColor.GREEN))
                     .append(Component.text("\nYour new highscore is ", NamedTextColor.LIGHT_PURPLE))
                     .append(Component.text(score, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
-                    .append(Component.text("\n\nYou are now #${placement} on the global leaderboard!", NamedTextColor.GOLD))
+                    .append(Component.text("\n\nYou are now #${placement} on the lifetime leaderboard!", NamedTextColor.GOLD))
                     .append(Component.text("\n"))
                     .armify()
             )
@@ -692,11 +694,11 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 TimeFrame.DAILY -> dailyScore
                 TimeFrame.WEEKLY -> weeklyScore
                 TimeFrame.MONTHLY -> monthlyScore
-                TimeFrame.GLOBAL -> return@forEachIndexed
+                TimeFrame.LIFETIME -> return@forEachIndexed
             }
 
             if (score > timeFrameScore) {
-                val placement = MarathonExtension.mongoStorage?.getPlacement(score, it.collection) ?: 11
+                val placement = MarathonExtension.mongoStorage?.getPlacementByScore(timeFrameScore, it.collection) ?: 11
 
                 val previousPlacement = when (it) {
                     TimeFrame.DAILY -> dailyPlacement

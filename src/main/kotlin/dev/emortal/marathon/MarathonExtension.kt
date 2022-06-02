@@ -79,6 +79,8 @@ class MarathonExtension : Extension() {
         Top10Command.unregister()
         DiscCommand.unregister()
 
+        MongoStorage.client?.close()
+
         logger.info("[${origin.name}] Terminated!")
     }
 

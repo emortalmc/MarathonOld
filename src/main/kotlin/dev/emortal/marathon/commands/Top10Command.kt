@@ -108,15 +108,16 @@ object Top10Command : Kommand({
             i++
         }
 
-        if (sender is Player) {
+        // Use run so it doesn't block message
+        if (sender is Player) run {
 
             if (!highscores.any { it.uuid == sender.uuid.toString() }) {
                 val highscore = MarathonExtension.mongoStorage?.getHighscore(sender.uuid, timeFrame.collection)
-                val highscorePoints = highscore?.score ?: 0
-                val timeTaken = highscore?.timeTaken ?: 1L
-                val placement = MarathonExtension.mongoStorage?.getPlacement(highscorePoints, timeFrame.collection) ?: 0
+                val highscorePoints = highscore?.score ?: return@run
+                val timeTaken = highscore.timeTaken
+                val placement = MarathonExtension.mongoStorage?.getPlacementByScore(highscorePoints, timeFrame.collection) ?: 0
 
-                val bps = (highscorePoints.toDouble() / (highscore?.timeTaken ?: 0)) * 1000
+                val bps = (highscorePoints.toDouble() / highscore.timeTaken) * 1000
 
                 message.append(
                     Component.text()
