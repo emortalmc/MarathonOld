@@ -73,7 +73,7 @@ import kotlin.math.roundToInt
 class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     companion object {
-        val SPAWN_POINT = Pos(0.5, 150.0, 0.5)
+        val SPAWN_POINT = Pos(0.5, 213.0, 0.5)
         val dateFormat = SimpleDateFormat("mm:ss")
         val accurateDateFormat = SimpleDateFormat("mm:ss.SSS")
 
@@ -89,14 +89,14 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     // Amount of blocks in front of the player
     var length = 6
-    var targetY = 150
+    var targetY = SPAWN_POINT.blockY()
     var targetX = 0
 
     var actionBarTask: Task? = null
     var breakingTask: Task? = null
     var currentBreakingProgress = 0
 
-    var finalBlockPos: Point = Pos(0.0, 149.0, 0.0)
+    var finalBlockPos: Point = Pos(0.0, SPAWN_POINT.y - 1.0, 0.0)
 
     var lastBlockTimestamp = 0L
     var startTimestamp = -1L
@@ -352,7 +352,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         val previousScore = score
         score = 0
         combo = 0
-        finalBlockPos = Pos(0.0, 149.0, 0.0)
+        finalBlockPos = Pos(0.0, SPAWN_POINT.y - 1.0, 0.0)
 
         blocks.add(Pair(finalBlockPos, Block.DIAMOND_BLOCK))
         instance.setBlock(finalBlockPos, Block.DIAMOND_BLOCK)
@@ -504,8 +504,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             blocks.removeAt(0)
         }
 
-        if (finalBlockPos.y() == 150.0) targetY =
-            0 else if (finalBlockPos.y() < 135 || finalBlockPos.y() > 240) targetY = 150
+        if (finalBlockPos.y() == SPAWN_POINT.y) targetY =
+            0 else if (finalBlockPos.y() < SPAWN_POINT.blockY() - 17 || finalBlockPos.y() > SPAWN_POINT.blockY() + 30) targetY = SPAWN_POINT.blockY()
 
         finalBlockPos = generator.getNextPosition(finalBlockPos, targetX, targetY, score)
 
@@ -775,7 +775,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         newInstance.time = 0
         newInstance.timeRate = 0
         newInstance.timeUpdate = null
-        newInstance.setBlock(0, 149, 0, Block.DIAMOND_BLOCK)
+        newInstance.setBlock(0, SPAWN_POINT.blockY() - 1, 0, Block.DIAMOND_BLOCK)
         //newInstance.chunkLoader = SchematicChunkLoader.builder().addSchematic(schematic).offset(0, 150, 0).build()
 
         return newInstance
