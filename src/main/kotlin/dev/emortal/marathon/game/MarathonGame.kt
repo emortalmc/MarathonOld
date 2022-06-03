@@ -164,8 +164,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         monthlyPlacement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.monthly)
         playerSettings = MarathonExtension.mongoStorage?.getSettings(player.uuid)
 
-//        theme = MarathonExtension.mongoStorage?.
-
         scoreboard?.createLine(
             Sidebar.ScoreboardLine(
                 "highscoreLine",
@@ -236,6 +234,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             )
         )
 
+        player.setHeldItemSlot(4)
+
         when (playerSettings?.theme) {
             "light" -> instance.time = 0
             else -> instance.time = 18000
@@ -267,12 +267,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         player.inventory.setItemStack(
             0,
             ItemStack.builder(Material.CLOCK)
-                .displayName(Component.text("THEME", NamedTextColor.GOLD).noItalic())
-                .meta { meta ->
-                    meta.enchantment(Enchantment.INFINITY, 1)
-                    meta.hideFlag(ItemHideFlag.HIDE_ENCHANTS)
-
-                }
+                .displayName(Component.text("Theme Toggle", NamedTextColor.GOLD).noItalic())
                 .build()
         )
     }
@@ -301,19 +296,18 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             }
 
             if (this.itemStack.material() == Material.CLOCK) {
-                var message: Component
                 this.isCancelled = true
                 player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
 
                 playerSettings = when (playerSettings?.theme) {
                     "light" -> {
-                        player.sendMessage(Component.text("Theme is now dark", NamedTextColor.GRAY))
-                        instance.time = 18000
+                        player.sendMessage(Component.text("Set theme is now dark", NamedTextColor.GOLD))
+                        this@MarathonGame.instance.time = 18000
                         playerSettings?.copy(theme = "dark")
                     }
                     else -> {
-                        player.sendMessage(Component.text("Theme is now light", NamedTextColor.GOLD))
-                        instance.time = 0
+                        player.sendMessage(Component.text("Set theme is now light", NamedTextColor.GOLD))
+                        this@MarathonGame.instance.time = 0
                         playerSettings?.copy(theme = "light")
                     }
                 }
