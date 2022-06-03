@@ -37,6 +37,8 @@ class MongoStorage {
         var weekly: CoroutineCollection<Highscore>? = null
         var monthly: CoroutineCollection<Highscore>? = null
 
+        var playerSettings: CoroutineCollection<PlayerSettings>? = null
+
         var resetCollection: CoroutineCollection<ResetTimes>? = null
     }
 
@@ -174,4 +176,11 @@ class MongoStorage {
         return (collection?.find(Highscore::score gt highscore.score)?.toFlow()?.count() ?: 0) + 1
     }
 
+    suspend fun getSettings(uuid: UUID): PlayerSettings =
+        playerSettings?.findOne(PlayerSettings::uuid eq uuid.toString())
+        ?: PlayerSettings(uuid = uuid.toString())
+
+    fun saveSettings(uuid: UUID, settings: PlayerSettings) = runBlocking {
+        playerSettings?.replaceOne(PlayerSettings::uuid eq settings.uuid, settings, ReplaceOptions().upsert(true))
+    }
 }
