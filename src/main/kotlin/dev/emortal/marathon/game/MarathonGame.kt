@@ -308,8 +308,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 playerSettings = when (playerSettings?.theme) {
                     "light" -> {
                         message = Component.text()
-                            .append(Component.text("#${monthlyPlacement}", NamedTextColor.GOLD))
-                            .append(Component.text(" on monthly", NamedTextColor.GRAY))
+                            .append(Component.text("Theme is now dark", NamedTextColor.GOLD))
                             .build()
 
                         player.sendMessage(message)
@@ -319,8 +318,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                     else -> {
 
                         message = Component.text()
-                            .append(Component.text("#${monthlyPlacement}", NamedTextColor.GOLD))
-                            .append(Component.text(" on monthly", NamedTextColor.GRAY))
+                            .append(Component.text("Theme is now light", NamedTextColor.GOLD))
                             .build()
 
                         player.sendMessage(message)
