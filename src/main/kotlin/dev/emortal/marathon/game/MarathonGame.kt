@@ -307,21 +307,12 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
                 playerSettings = when (playerSettings?.theme) {
                     "light" -> {
-                        message = Component.text()
-                            .append(Component.text("Theme is now dark", NamedTextColor.GOLD))
-                            .build()
-
-                        player.sendMessage(message)
+                        player.sendMessage(Component.text("Theme is now dark", NamedTextColor.GRAY))
                         instance.time = 18000
                         playerSettings?.copy(theme = "dark")
                     }
                     else -> {
-
-                        message = Component.text()
-                            .append(Component.text("Theme is now light", NamedTextColor.GOLD))
-                            .build()
-
-                        player.sendMessage(message)
+                        player.sendMessage(Component.text("Theme is now light", NamedTextColor.GOLD))
                         instance.time = 0
                         playerSettings?.copy(theme = "light")
                     }
