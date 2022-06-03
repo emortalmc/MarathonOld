@@ -9,6 +9,7 @@ import dev.emortal.marathon.animation.PathAnimator
 import dev.emortal.marathon.commands.DiscCommand
 import dev.emortal.marathon.db.Highscore
 import dev.emortal.marathon.db.MongoStorage
+import dev.emortal.marathon.db.PlayerSettings
 import dev.emortal.marathon.generator.Generator
 import dev.emortal.marathon.generator.LegacyGenerator
 import dev.emortal.marathon.gui.MusicPlayerInventory
@@ -81,7 +82,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         val teleportingTag = Tag.Boolean("teleporting")
 
 
-
     }
 
     val generator: Generator = LegacyGenerator
@@ -113,6 +113,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     private var dailyPlacement: Int? = 0
     private var weeklyPlacement: Int? = 0
     private var monthlyPlacement: Int? = 0
+
+    private var playerSettings: PlayerSettings? = null
 
     private var passedHighscore = false
 
@@ -146,6 +148,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     override fun playerJoin(player: Player) = runBlocking {
+
         highscore = MarathonExtension.mongoStorage?.getHighscore(player.uuid, MongoStorage.leaderboard)
         dailyHighscore = MarathonExtension.mongoStorage?.getHighscore(player.uuid, MongoStorage.daily)
         weeklyHighscore = MarathonExtension.mongoStorage?.getHighscore(player.uuid, MongoStorage.weekly)
@@ -159,6 +162,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         dailyPlacement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.daily)
         weeklyPlacement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.weekly)
         monthlyPlacement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.monthly)
+        playerSettings = MarathonExtension.mongoStorage?.getSettings(player.uuid)
+
+//        theme = MarathonExtension.mongoStorage?.
 
         scoreboard?.createLine(
             Sidebar.ScoreboardLine(
@@ -230,6 +236,11 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             )
         )
 
+        when (playerSettings?.theme) {
+            "light" -> instance.time = 0
+            else -> instance.time = 18000
+        }
+
         //BlockPalette.values().forEachIndexed { i, it ->
         //    val item = ItemStack.builder(it.displayItem)
         //        .displayName(it.displayName.noItalic())
@@ -252,9 +263,22 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 }
                 .build()
         )
+
+        player.inventory.setItemStack(
+            0,
+            ItemStack.builder(Material.CLOCK)
+                .displayName(Component.text("THEME", NamedTextColor.GOLD).noItalic())
+                .meta { meta ->
+                    meta.enchantment(Enchantment.INFINITY, 1)
+                    meta.hideFlag(ItemHideFlag.HIDE_ENCHANTS)
+
+                }
+                .build()
+        )
     }
 
     override fun playerLeave(player: Player) {
+        playerSettings?.let { MarathonExtension.mongoStorage?.saveSettings(player.uuid, it) }
         destroy()
     }
 
@@ -274,6 +298,36 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 this.isCancelled = true
                 player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
                 player.openInventory(MusicPlayerInventory.inventory)
+            }
+
+            if (this.itemStack.material() == Material.CLOCK) {
+                var message: Component
+                this.isCancelled = true
+                player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
+
+                playerSettings = when (playerSettings?.theme) {
+                    "light" -> {
+                        message = Component.text()
+                            .append(Component.text("#${monthlyPlacement}", NamedTextColor.GOLD))
+                            .append(Component.text(" on monthly", NamedTextColor.GRAY))
+                            .build()
+
+                        player.sendMessage(message)
+                        instance.time = 18000
+                        playerSettings?.copy(theme = "dark")
+                    }
+                    else -> {
+
+                        message = Component.text()
+                            .append(Component.text("#${monthlyPlacement}", NamedTextColor.GOLD))
+                            .append(Component.text(" on monthly", NamedTextColor.GRAY))
+                            .build()
+
+                        player.sendMessage(message)
+                        instance.time = 0
+                        playerSettings?.copy(theme = "light")
+                    }
+                }
             }
         }
 
@@ -296,7 +350,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         }
 
         listenOnly<PlayerChangeHeldSlotEvent> {
-            val palette = BlockPalette.values()[player.inventory.getItemStack(slot.toInt()).getTag(paletteTag) ?: return@listenOnly]
+            val palette = BlockPalette.values()[player.inventory.getItemStack(slot.toInt()).getTag(paletteTag)
+                ?: return@listenOnly]
 
             if (blockPalette == palette) return@listenOnly
 
@@ -386,7 +441,14 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 task = Manager.scheduler.buildTask {
                     i++
                     if (i > length) task.cancel()
-                    playSound(Sound.sound(SoundEvent.ENTITY_EXPERIENCE_ORB_PICKUP, Sound.Source.MASTER, 1f, 1f + (i.toFloat() / 16f)))
+                    playSound(
+                        Sound.sound(
+                            SoundEvent.ENTITY_EXPERIENCE_ORB_PICKUP,
+                            Sound.Source.MASTER,
+                            1f,
+                            1f + (i.toFloat() / 16f)
+                        )
+                    )
                     generateNextBlock(false)
                 }.repeat(TaskSchedule.nextTick()).schedule()
 
@@ -511,7 +573,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
 
         //val newPaletteBlock = blockPalette.blocks.filter { it != blocks.last().second }.random()
-        val newPaletteBlock = blockPalette.blocks[(blockPalette.blocks.indexOf(blocks.last().second) + 1) % blockPalette.blocks.size]
+        val newPaletteBlock =
+            blockPalette.blocks[(blockPalette.blocks.indexOf(blocks.last().second) + 1) % blockPalette.blocks.size]
         val newPaletteBlockPos = finalBlockPos
 
         val lastBlock = blocks.last()
@@ -525,7 +588,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                     count = 1,
                     data = OffsetAndSpeed(0f, 0f, 0f, 0f),
                     extraData = Dust(1f, 0f, 1f, 1.25f)
-                ), Vectors(newPaletteBlockPos.asVec().add(0.5, 0.5, 0.5), lastBlock.first.asVec().add(0.5, 0.5, 0.5), 0.35)
+                ),
+                Vectors(newPaletteBlockPos.asVec().add(0.5, 0.5, 0.5), lastBlock.first.asVec().add(0.5, 0.5, 0.5), 0.35)
             )
         }
 
@@ -536,9 +600,15 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 type = ParticleType.DUST,
                 count = 1,
                 data = OffsetAndSpeed(),//OffsetAndSpeed(0f, 0f, 0f, 0.05f),
-                extraData = Dust(1f,0.25f, 1f, 0.9f)
-        //), finalBlockPos.asVec().add(0.5, 0.5, 0.5))
-        ), Renderer.fixedRectangle(finalBlockPos.asVec().sub(0.1, 0.1, 0.1), finalBlockPos.add(1.1, 1.1, 1.1).asVec(), 0.5))
+                extraData = Dust(1f, 0.25f, 1f, 0.9f)
+                //), finalBlockPos.asVec().add(0.5, 0.5, 0.5))
+            ),
+            Renderer.fixedRectangle(
+                finalBlockPos.asVec().sub(0.1, 0.1, 0.1),
+                finalBlockPos.add(1.1, 1.1, 1.1).asVec(),
+                0.5
+            )
+        )
 
     }
 
@@ -569,7 +639,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         val millisTaken: Long = if (startTimestamp == -1L) 0 else System.currentTimeMillis() - startTimestamp
         val formattedTime: String = dateFormat.format(Date(millisTaken))
         val secondsTaken = millisTaken / 1000.0
-        val scorePerSecond = if (score < 2) "-.-" else ((score / secondsTaken * 10.0).roundToInt() / 10.0).coerceIn(0.0, 9.9)
+        val scorePerSecond =
+            if (score < 2) "-.-" else ((score / secondsTaken * 10.0).roundToInt() / 10.0).coerceIn(0.0, 9.9)
 
         val message: Component = Component.text()
             .append(Component.text(score, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
@@ -643,7 +714,10 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         if (score > highscoreScore) {
             val placement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.leaderboard) ?: 0
 
-            playSound(Sound.sound(SoundEvent.ENTITY_PLAYER_LEVELUP, Sound.Source.MASTER, 1f, 0.7f), Sound.Emitter.self())
+            playSound(
+                Sound.sound(SoundEvent.ENTITY_PLAYER_LEVELUP, Sound.Source.MASTER, 1f, 0.7f),
+                Sound.Emitter.self()
+            )
             showTitle(
                 Title.title(
                     Component.empty(),
@@ -658,7 +732,12 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                     .append(Component.text(highscoreScore, NamedTextColor.GREEN))
                     .append(Component.text("\nYour new highscore is ", NamedTextColor.LIGHT_PURPLE))
                     .append(Component.text(score, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
-                    .append(Component.text("\n\nYou are now #${placement} on the lifetime leaderboard!", NamedTextColor.GOLD))
+                    .append(
+                        Component.text(
+                            "\n\nYou are now #${placement} on the lifetime leaderboard!",
+                            NamedTextColor.GOLD
+                        )
+                    )
                     .append(Component.text("\n"))
                     .armify()
             )
@@ -710,7 +789,12 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 if (placement <= 10) {
                     if (placement != previousPlacement) {
                         shouldSendMessage = true
-                        message.append(Component.text("You are now #${placement} on the ${it.lyName} leaderboard!\n", NamedTextColor.GOLD))
+                        message.append(
+                            Component.text(
+                                "You are now #${placement} on the ${it.lyName} leaderboard!\n",
+                                NamedTextColor.GOLD
+                            )
+                        )
 
                         scoreboard?.updateOrCreateLine(
                             "${it.lyName}PlacementLine",
