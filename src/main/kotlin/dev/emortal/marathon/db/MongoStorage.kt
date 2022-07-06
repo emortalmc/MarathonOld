@@ -59,7 +59,7 @@ class MongoStorage {
         mongoScope.launch {
             val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
             val tomorrow = LocalDateTime.now().truncatedTo(ChronoUnit.DAYS).plusDays(1).toEpochSecond(ZoneOffset.UTC)
-            val nextWeek = LocalDateTime.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
+            val nextWeek = LocalDateTime.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
             val nextMonth = LocalDateTime.now().with(TemporalAdjusters.firstDayOfNextMonth()).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
 
             if (resetCollection?.findOne() == null) {
@@ -120,7 +120,7 @@ class MongoStorage {
             object : MinestomRunnable(coroutineScope = mongoScope, delay = durationUntilNextWeek, repeat = durationUntilNextWeek) {
                 override suspend fun run() {
                     val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                    val nextWeek = LocalDateTime.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
+                    val nextWeek = LocalDateTime.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
 
                     Logger.info("Cleared weekly leaderboard!")
                     weekly?.drop()
