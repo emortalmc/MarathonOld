@@ -1,8 +1,8 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "1.6.21"
-    kotlin("plugin.serialization") version "1.6.21"
+    id("org.jetbrains.kotlin.jvm") version "1.7.0"
+    kotlin("plugin.serialization") version "1.7.0"
     id("com.github.johnrengelman.shadow") version "7.1.2"
 
     java
@@ -19,7 +19,7 @@ dependencies {
     compileOnly("com.github.EmortalMC:NBStom:fd3da7bf91")
 
 
-    implementation("org.litote.kmongo:kmongo-coroutine-serialization:4.6.0")
+    implementation("org.litote.kmongo:kmongo-coroutine-serialization:4.6.1")
 
     //compileOnly("mysql:mysql-connector-java:8.0.29")
     //compileOnly("com.zaxxer:HikariCP:5.0.1")
