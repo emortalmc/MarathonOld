@@ -1,6 +1,7 @@
 package dev.emortal.marathon.db
 
 import com.mongodb.client.model.ReplaceOptions
+import dev.emortal.immortal.util.CoroutineRunnable
 import dev.emortal.immortal.util.MinestomRunnable
 import dev.emortal.marathon.MarathonExtension
 import kotlinx.coroutines.CoroutineScope
@@ -102,7 +103,7 @@ class MongoStorage {
 
             var resetTimes = resetCollection?.findOne()!!
 
-            object : MinestomRunnable(coroutineScope = mongoScope, delay = durationUntilTomorrow, repeat = durationUntilTomorrow) {
+            object : CoroutineRunnable(coroutineScope = mongoScope, delay = durationUntilTomorrow, repeat = durationUntilTomorrow) {
                 override suspend fun run() {
                     val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
                     val tomorrow = LocalDateTime.now().truncatedTo(ChronoUnit.DAYS).plusDays(1).toEpochSecond(ZoneOffset.UTC)
@@ -117,7 +118,7 @@ class MongoStorage {
                 }
             }
 
-            object : MinestomRunnable(coroutineScope = mongoScope, delay = durationUntilNextWeek, repeat = durationUntilNextWeek) {
+            object : CoroutineRunnable(coroutineScope = mongoScope, delay = durationUntilNextWeek, repeat = durationUntilNextWeek) {
                 override suspend fun run() {
                     val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
                     val nextWeek = LocalDateTime.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
@@ -132,7 +133,7 @@ class MongoStorage {
                 }
             }
 
-            object : MinestomRunnable(coroutineScope = mongoScope, delay = durationUntilNextMonth, repeat = durationUntilNextMonth) {
+            object : CoroutineRunnable(coroutineScope = mongoScope, delay = durationUntilNextMonth, repeat = durationUntilNextMonth) {
                 override suspend fun run() {
                     val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
                     val nextMonth = LocalDateTime.now().with(TemporalAdjusters.firstDayOfNextMonth()).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)

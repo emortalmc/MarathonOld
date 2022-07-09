@@ -15,16 +15,11 @@ repositories {
 
 dependencies {
     compileOnly("com.github.Minestom:Minestom:58b6e90142")
-    compileOnly("com.github.EmortalMC:Immortal:eab3ac8420")
+    compileOnly("com.github.EmortalMC:Immortal:0844a77dc6")
     compileOnly("com.github.EmortalMC:NBStom:fd3da7bf91")
 
 
-    implementation("org.litote.kmongo:kmongo-coroutine-serialization:4.6.1")
-
-    //compileOnly("mysql:mysql-connector-java:8.0.29")
-    //compileOnly("com.zaxxer:HikariCP:5.0.1")
-
-    //implementation(files("libs/Blocky-1.0-SNAPSHOT.jar"))
+    compileOnly("org.litote.kmongo:kmongo-coroutine-serialization:4.6.1")
 
     //implementation("com.github.KrystilizeNevaDies:Scaffolding:2303491258")
     compileOnly("com.github.EmortalMC:Acquaintance:b07cb2e120")

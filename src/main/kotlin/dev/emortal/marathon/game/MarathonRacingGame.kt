@@ -308,10 +308,10 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     private fun createBreakingTask(racer: ParkourRacer) {
         racer.breakingTask?.cancel()
-        racer.breakingTask = object : MinestomRunnable(coroutineScope = coroutineScope, delay = Duration.ofSeconds(1), repeat = Duration.ofMillis(500)) {
+        racer.breakingTask = object : MinestomRunnable(taskGroup = taskGroup, delay = Duration.ofSeconds(1), repeat = Duration.ofMillis(500)) {
             var currentBreakingProgress = 0
 
-            override suspend fun run() {
+            override fun run() {
                 if (currentBreakingProgress > 8) {
                     cancel()
                     createBreakingTask(racer)

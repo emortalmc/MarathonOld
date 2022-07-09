@@ -55,8 +55,8 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
             ), Vectors(point.asVec().add(0.5, 0.5, 0.5), actualLastPoint.asVec().add(0.5, 0.5, 0.5), 0.35)
         )
 
-        object : MinestomRunnable(coroutineScope = game.coroutineScope, delay = Duration.ofMillis((timeToAnimate * 1000L).toLong())) {
-            override suspend fun run() {
+        object : MinestomRunnable(taskGroup = game.taskGroup, delay = Duration.ofMillis((timeToAnimate * 1000L).toLong())) {
+            override fun run() {
                 game.instance.setBlock(point, fallingBlockMeta.block)
                 fallingBlock.remove()
 
