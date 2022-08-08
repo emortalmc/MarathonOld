@@ -19,7 +19,7 @@ dependencies {
     compileOnly("com.github.EmortalMC:NBStom:fd3da7bf91")
 
 
-    compileOnly("org.litote.kmongo:kmongo-coroutine-serialization:4.6.1")
+    compileOnly("org.litote.kmongo:kmongo-coroutine-serialization:4.7.0")
 
     //implementation("com.github.KrystilizeNevaDies:Scaffolding:2303491258")
     compileOnly("com.github.EmortalMC:Acquaintance:b07cb2e120")
