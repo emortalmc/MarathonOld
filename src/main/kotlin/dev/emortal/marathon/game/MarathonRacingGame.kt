@@ -174,6 +174,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     private fun reset(player: Player, inGame: Boolean) = runBlocking {
         val racer = racerMap[player] ?: return@runBlocking
+        val instance = instance.get()!!
 
         if (racer.score == 0) return@runBlocking
 
@@ -285,7 +286,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         animation.setBlockAnimated(newPos, newPaletteBlock, finalBlockPos)
 
-        instance.showParticle(
+        showParticle(
             Particle.particle(
                 type = ParticleType.CLOUD,
                 count = 10,

@@ -29,7 +29,7 @@ import kotlin.math.roundToLong
 
 object DiscCommand : Kommand({
 
-    onlyPlayers
+    onlyPlayers()
 
     // If no arguments given, open inventory
     default {

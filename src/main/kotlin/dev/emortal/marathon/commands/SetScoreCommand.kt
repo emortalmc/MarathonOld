@@ -15,7 +15,7 @@ import world.cepi.kstom.command.kommand.Kommand
 import java.util.*
 
 object SetScoreCommand : Kommand({
-    onlyPlayers
+    onlyPlayers()
 
     val playerArgument = ArgumentWord("username")
     val score = ArgumentInteger("score")

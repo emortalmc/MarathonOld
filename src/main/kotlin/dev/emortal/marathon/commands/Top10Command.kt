@@ -17,6 +17,7 @@ import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.command.CommandSender
 import net.minestom.server.command.builder.arguments.ArgumentString
 import net.minestom.server.entity.Player
+import net.minestom.server.network.packet.server.play.EntityAnimationPacket
 import world.cepi.kstom.command.arguments.suggest
 import world.cepi.kstom.command.kommand.Kommand
 import java.time.DayOfWeek

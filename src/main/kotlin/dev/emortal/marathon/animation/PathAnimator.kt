@@ -42,8 +42,10 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
             .asVec()
             .normalize()
             .mul((1 / timeToAnimate) * 1.15 * point.distance(actualLastPoint))
-        fallingBlock.setInstance(game.instance, actualLastPoint.add(0.5, 0.0, 0.5)).thenRun {
-            lastSandEntity.set(fallingBlock)
+        game.instance.get()?.let {
+            fallingBlock.setInstance(it, actualLastPoint.add(0.5, 0.0, 0.5)).thenRun {
+                lastSandEntity.set(fallingBlock)
+            }
         }
 
         game.showParticle(
@@ -57,7 +59,7 @@ class PathAnimator(game: Game) : BlockAnimator(game) {
 
         object : MinestomRunnable(taskGroup = game.taskGroup, delay = Duration.ofMillis((timeToAnimate * 1000L).toLong())) {
             override fun run() {
-                game.instance.setBlock(point, fallingBlockMeta.block)
+                game.instance.get()?.setBlock(point, fallingBlockMeta.block)
                 fallingBlock.remove()
 
                 lastSandEntity.getAndUpdate { if (fallingBlock == it) null else it }

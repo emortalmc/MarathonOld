@@ -20,7 +20,7 @@ abstract class BlockAnimator(val game: Game) {
     open fun destroyBlockAnimated(point: Point, block: Block) {
         //game.breakBlock(point, lastBlock)
         //if (block != Block.DIAMOND_BLOCK)
-            game.instance.setBlock(point, Block.AIR)
+            game.instance.get()?.setBlock(point, Block.AIR)
     }
 
 }

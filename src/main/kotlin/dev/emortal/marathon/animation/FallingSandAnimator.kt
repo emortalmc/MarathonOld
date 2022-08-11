@@ -19,10 +19,10 @@ class FallingSandAnimator(game: Game) : BlockAnimator(game) {
         val fallingBlockMeta = fallingBlock.entityMeta as FallingBlockMeta
         fallingBlockMeta.block = block
         fallingBlock.velocity = Vec(0.0, -10.0, 0.0)
-        fallingBlock.setInstance(game.instance, point.add(0.5, distanceToFall + 1, 0.5))
+        game.instance.get()?.let { fallingBlock.setInstance(it, point.add(0.5, distanceToFall + 1, 0.5)) }
 
         tasks.add(Manager.scheduler.buildTask {
-            game.instance.setBlock(point, block)
+            game.instance.get()?.setBlock(point, block)
             fallingBlock.remove()
         }.delay(Duration.ofMillis((distanceToFall * 100).toLong())).schedule())
     }

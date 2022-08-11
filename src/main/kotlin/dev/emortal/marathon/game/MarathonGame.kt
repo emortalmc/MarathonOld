@@ -2,6 +2,7 @@ package dev.emortal.marathon.game
 
 import dev.emortal.immortal.config.GameOptions
 import dev.emortal.immortal.game.Game
+import dev.emortal.immortal.game.GameManager
 import dev.emortal.immortal.util.armify
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.animation.BlockAnimator
@@ -17,6 +18,8 @@ import dev.emortal.marathon.utils.TimeFrame
 import dev.emortal.marathon.utils.firsts
 import dev.emortal.marathon.utils.sendBlockDamage
 import dev.emortal.marathon.utils.updateOrCreateLine
+import dev.emortal.tnt.TNTLoader
+import dev.emortal.tnt.source.FileTNTSource
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -36,7 +39,9 @@ import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerSwapItemEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
+import net.minestom.server.instance.AnvilLoader
 import net.minestom.server.instance.Instance
+import net.minestom.server.instance.batch.AbsoluteBlockBatch
 import net.minestom.server.instance.block.Block
 import net.minestom.server.item.Enchantment
 import net.minestom.server.item.ItemHideFlag
@@ -48,15 +53,15 @@ import net.minestom.server.tag.Tag
 import net.minestom.server.timer.Task
 import net.minestom.server.timer.TaskSchedule
 import net.minestom.server.utils.NamespaceID
+import net.minestom.server.utils.chunk.ChunkUtils
 import net.minestom.server.utils.time.TimeUnit
+import org.litote.kmongo.MongoOperator
 import org.tinylog.kotlin.Logger
 import world.cepi.kstom.Manager
+import world.cepi.kstom.Manager.block
 import world.cepi.kstom.adventure.noItalic
 import world.cepi.kstom.event.listenOnly
-import world.cepi.kstom.util.asPos
-import world.cepi.kstom.util.asVec
-import world.cepi.kstom.util.playSound
-import world.cepi.kstom.util.roundToBlock
+import world.cepi.kstom.util.*
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
 import world.cepi.particle.data.OffsetAndSpeed
@@ -64,17 +69,19 @@ import world.cepi.particle.extra.Dust
 import world.cepi.particle.renderer.Renderer
 import world.cepi.particle.showParticle
 import world.cepi.particle.util.Vectors
+import java.nio.file.Path
 import java.text.SimpleDateFormat
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
 class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     companion object {
-        val SPAWN_POINT = Pos(0.5, 213.0, 0.5)
+        val SPAWN_POINT = Pos(0.5, 150.0, 0.5)
         val dateFormat = SimpleDateFormat("mm:ss")
         val accurateDateFormat = SimpleDateFormat("mm:ss.SSS")
 
@@ -129,17 +136,17 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             blocks.forEachIndexed { i, block ->
                 if (block.second == Block.DIAMOND_BLOCK) return@forEachIndexed
                 val newBlock = value.blocks.filter { it != block.second }.random()
-                instance.setBlock(block.first, newBlock)
+                instance.get()?.setBlock(block.first, newBlock)
                 blocks[i] = Pair(block.first, newBlock)
             }
-            instance.entities.filter { it.entityType == EntityType.FALLING_BLOCK }.forEach {
+            instance.get()?.entities?.filter { it.entityType == EntityType.FALLING_BLOCK }?.forEach {
                 it.remove()
             }
 
             field = value
         }
 
-    var blocks = mutableListOf<Pair<Point, Block>>()
+    var blocks = CopyOnWriteArrayList<Pair<Point, Block>>()
 
     override var spawnPosition = SPAWN_POINT
 
@@ -236,6 +243,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         player.setHeldItemSlot(4)
 
+        val instance = instance.get()!!
+
         when (playerSettings?.theme) {
             "light" -> instance.time = 0
             else -> instance.time = 18000
@@ -302,12 +311,12 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                 playerSettings = when (playerSettings?.theme) {
                     "light" -> {
                         player.sendMessage(Component.text("Set theme is now dark", NamedTextColor.GOLD))
-                        this@MarathonGame.instance.time = 18000
+                        instance.time = 18000
                         playerSettings?.copy(theme = "dark")
                     }
                     else -> {
                         player.sendMessage(Component.text("Set theme is now light", NamedTextColor.GOLD))
-                        this@MarathonGame.instance.time = 0
+                        instance.time = 0
                         playerSettings?.copy(theme = "light")
                     }
                 }
@@ -368,9 +377,18 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     private fun reset() = runBlocking {
+        val instance = instance.get()!!
         val player = players.first()
 
+        breakingTask?.cancel()
+        breakingTask = null
+
         if (score == 0) {
+            instance.chunksInRange(Pos.ZERO, 3).forEach {
+                val chunk = instance.getChunk(it.first, it.second)
+                chunk?.sendChunk(player)
+            }
+
             player.teleport(SPAWN_POINT).thenRun {
                 player.removeTag(teleportingTag)
             }
@@ -378,22 +396,19 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             return@runBlocking
         }
 
-        blocks.forEach { block ->
-            if (block.first == Block.DIAMOND_BLOCK) return@forEach
-            instance.scheduleNextTick {
-                instance.setBlock(block.first, Block.AIR)
-            }
-        }
-        blocks.clear()
-
-
         val previousScore = score
         score = 0
         combo = 0
         finalBlockPos = Pos(0.0, SPAWN_POINT.y - 1.0, 0.0)
 
-        blocks.add(Pair(finalBlockPos, Block.DIAMOND_BLOCK))
-        instance.setBlock(finalBlockPos, Block.DIAMOND_BLOCK)
+        val batch = AbsoluteBlockBatch()
+        blocks.forEach { block ->
+            if (block.second == Block.GRASS_BLOCK) return@forEach
+            instance.setBlock(block.first, Block.AIR)
+        }
+
+        blocks.clear()
+        blocks.add(Pair(finalBlockPos.add(0.0, 1.0, 0.0), Block.ORANGE_CONCRETE))
 
         animation.tasks.forEach {
             it.cancel()
@@ -402,42 +417,21 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         instance.entities.filter { it !is Player && it.entityType != EntityType.BOAT }.forEach { it.remove() }
 
-        breakingTask?.cancel()
-        breakingTask = null
-
         passedHighscore = false
 
         spectators.forEach {
             it.stopSpectating()
-            it.teleport(SPAWN_POINT)
-            respawnBoat(it, SPAWN_POINT)
+            it.teleport(SPAWN_POINT).thenRun {
+                respawnBoat(it, SPAWN_POINT)
+            }
         }
 
-
-        player.exp = 0f
-
         player.velocity = Vec.ZERO
-        player.teleport(SPAWN_POINT).thenRun {
-            instance.scheduleNextTick { _ ->
-                var i = 0
-                lateinit var task: Task
-                task = Manager.scheduler.buildTask {
-                    i++
-                    if (i > length) task.cancel()
-                    playSound(
-                        Sound.sound(
-                            SoundEvent.ENTITY_EXPERIENCE_ORB_PICKUP,
-                            Sound.Source.MASTER,
-                            1f,
-                            1f + (i.toFloat() / 16f)
-                        )
-                    )
-                    generateNextBlock(false)
-                }.repeat(TaskSchedule.nextTick()).schedule()
 
-                //generateNextBlock(length, false)
-                player.removeTag(teleportingTag)
-            }
+        player.teleport(SPAWN_POINT).thenRun {
+            player.removeTag(teleportingTag)
+
+            generateNextBlock(length, false)
         }
 
         updateActionBar()
@@ -475,10 +469,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             val basePitch: Float = 0.9f + (combo - 1) * 0.05f
 
             score += times
-
-            players.forEach {
-                it.exp = (score.toFloat() / (highscore?.score ?: 0).toFloat()).coerceAtMost(1f)
-            }
 
             val highscorePoints = highscore?.score ?: 0
             if (!passedHighscore && score > highscorePoints) {
@@ -521,12 +511,13 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         var newPos = position.apply { _, y, z, _, _ -> Pos(blocks.sumOf { it.first.x() } / blocks.size, y + 3, z - 6) }
         newPos = newPos.withDirection(position.sub(newPos))
 
-        entity.setInstance(instance, newPos).thenRun {
-            spectator.spectate(entity)
-            instance.scheduleNextTick {
-                spectator.spectate(entity)
+        instance.get()?.let {
+            entity.setInstance(it, newPos).thenRun {
+                spectator.scheduleNextTick {
+                    spectator.spectate(entity)
+                }
+                spectatorBoatMap[spectator.uuid] = entity
             }
-            spectatorBoatMap[spectator.uuid] = entity
         }
     }
 
@@ -563,7 +554,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         val lastBlock = blocks.last()
         if (inGame) animation.setBlockAnimated(newPaletteBlockPos, newPaletteBlock, lastBlock.first)
         else {
-            instance.setBlock(newPaletteBlockPos, newPaletteBlock)
+            instance.get()?.setBlock(newPaletteBlockPos, newPaletteBlock)
 
             showParticle(
                 Particle.particle(
@@ -578,7 +569,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         blocks.add(Pair(newPaletteBlockPos, newPaletteBlock))
 
-        instance.showParticle(
+        showParticle(
             Particle.particle(
                 type = ParticleType.DUST,
                 count = 1,
@@ -645,6 +636,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         var maxX = 0
         var minX = 0
 
+        var maxZ = Integer.MIN_VALUE
         var minZ = Integer.MAX_VALUE
 
         blocks.forEach {
@@ -652,10 +644,12 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             if (it.first.blockY() < minY) minY = it.first.blockY()
 
             if (it.first.blockZ() < minZ) minZ = it.first.blockZ()
+            if (it.first.blockZ() > maxZ) maxZ = it.first.blockZ()
 
             if (it.first.blockX() > maxX) maxX = it.first.blockX()
             if (it.first.blockX() < minX) minX = it.first.blockX()
         }
+
 
         // Check for player too far up
         if (!invalidateRun && (maxY + 3.5) < position.y) {
@@ -665,6 +659,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         // Check for player too far down
         if ((minY - 3.0) > position.y) {
             player.setTag(teleportingTag, true)
+            instance.get()?.setBlock(spawnPosition.sub(0.0, 1.0, 0.0), Block.ORANGE_CONCRETE)
             reset()
         }
 
@@ -833,17 +828,19 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     override fun instanceCreate(): Instance {
 
-        //val schematic: Schematic = SpongeSchematic().also {
-        //    it.read(FileInputStream(File("./marathonstarter.schem")))
-        //}
-
         val dimension = Manager.dimensionType.getDimension(NamespaceID.from("fullbright"))!!
         val newInstance = Manager.instance.createInstanceContainer(dimension)
         newInstance.time = 0
         newInstance.timeRate = 0
         newInstance.timeUpdate = null
-        newInstance.setBlock(0, SPAWN_POINT.blockY() - 1, 0, Block.DIAMOND_BLOCK)
-        //newInstance.chunkLoader = SchematicChunkLoader.builder().addSchematic(schematic).offset(0, 150, 0).build()
+        //newInstance.setBlock(0, SPAWN_POINT.blockY() - 1, 0, Block.ORANGE_CONCRETE)
+
+        newInstance.setTag(GameManager.doNotUnloadChunksIndex, ChunkUtils.getChunkIndex(0, 0))
+        newInstance.setTag(GameManager.doNotUnloadChunksRadius, 3)
+
+        //val tntSource = FileTNTSource(Path.of("./starter.tnt"))
+        //newInstance.chunkLoader = TNTLoader(tntSource, Vec(0.0, (SPAWN_POINT.blockY() - 65).toDouble(), 0.0))
+        //newInstance.chunkLoader = AnvilLoader("./starter.tnt")
 
         return newInstance
     }
