@@ -16,10 +16,7 @@ import dev.emortal.marathon.generator.LegacyGenerator
 import dev.emortal.marathon.gui.MusicPlayerInventory
 import dev.emortal.marathon.utils.TimeFrame
 import dev.emortal.marathon.utils.firsts
-import dev.emortal.marathon.utils.sendBlockDamage
 import dev.emortal.marathon.utils.updateOrCreateLine
-import dev.emortal.tnt.TNTLoader
-import dev.emortal.tnt.source.FileTNTSource
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -39,7 +36,6 @@ import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerSwapItemEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
-import net.minestom.server.instance.AnvilLoader
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.batch.AbsoluteBlockBatch
 import net.minestom.server.instance.block.Block
@@ -51,17 +47,17 @@ import net.minestom.server.scoreboard.Sidebar
 import net.minestom.server.sound.SoundEvent
 import net.minestom.server.tag.Tag
 import net.minestom.server.timer.Task
-import net.minestom.server.timer.TaskSchedule
 import net.minestom.server.utils.NamespaceID
 import net.minestom.server.utils.chunk.ChunkUtils
 import net.minestom.server.utils.time.TimeUnit
-import org.litote.kmongo.MongoOperator
 import org.tinylog.kotlin.Logger
 import world.cepi.kstom.Manager
-import world.cepi.kstom.Manager.block
 import world.cepi.kstom.adventure.noItalic
 import world.cepi.kstom.event.listenOnly
-import world.cepi.kstom.util.*
+import world.cepi.kstom.util.asPos
+import world.cepi.kstom.util.asVec
+import world.cepi.kstom.util.chunksInRange
+import world.cepi.kstom.util.roundToBlock
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
 import world.cepi.particle.data.OffsetAndSpeed
@@ -69,12 +65,12 @@ import world.cepi.particle.extra.Dust
 import world.cepi.particle.renderer.Renderer
 import world.cepi.particle.showParticle
 import world.cepi.particle.util.Vectors
-import java.nio.file.Path
 import java.text.SimpleDateFormat
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.collections.set
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
@@ -381,6 +377,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         val player = players.first()
 
         breakingTask?.cancel()
+        animation.flushBreakAnimations()
         breakingTask = null
 
         if (score == 0) {
@@ -408,7 +405,8 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         }
 
         blocks.clear()
-        blocks.add(Pair(finalBlockPos.add(0.0, 1.0, 0.0), Block.ORANGE_CONCRETE))
+        instance.setBlock(spawnPosition.sub(0.0, 1.0, 0.0), Block.ORANGE_CONCRETE)
+        blocks.add(Pair(spawnPosition.sub(0.0, 1.0, 0.0), Block.ORANGE_CONCRETE))
 
         animation.tasks.forEach {
             it.cancel()
@@ -535,7 +533,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     fun generateNextBlock(inGame: Boolean = true) {
 
         if (inGame && blocks.size > length) {
-            animation.destroyBlockAnimated(blocks[0].first, blocks[0].second)
+            animation.destroyBlockAnimated(blocks[0].first)
 
             blocks.removeAt(0)
         }
@@ -587,26 +585,10 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     private fun createBreakingTask() {
-        currentBreakingProgress = 0
-
         breakingTask?.cancel()
         breakingTask = MinecraftServer.getSchedulerManager().buildTask {
-            if (blocks.size < 1) return@buildTask
-
-            val block = blocks[0]
-
-            currentBreakingProgress += 2
-
-            if (currentBreakingProgress > 8) {
-                generateNextBlock()
-                createBreakingTask()
-
-                return@buildTask
-            }
-
-            playSound(Sound.sound(SoundEvent.BLOCK_WOOD_HIT, Sound.Source.BLOCK, 0.5f, 1f), block.first)
-            sendBlockDamage(block.first, currentBreakingProgress.toByte())
-        }.delay(2000, TimeUnit.MILLISECOND).repeat(500, TimeUnit.MILLISECOND).schedule()
+            animation.destroyBlockAnimated(blocks[0].first, true)
+        }.delay(2000, TimeUnit.MILLISECOND).schedule()
     }
 
     private fun updateActionBar() {
@@ -659,7 +641,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         // Check for player too far down
         if ((minY - 3.0) > position.y) {
             player.setTag(teleportingTag, true)
-            instance.get()?.setBlock(spawnPosition.sub(0.0, 1.0, 0.0), Block.ORANGE_CONCRETE)
             reset()
         }
 
