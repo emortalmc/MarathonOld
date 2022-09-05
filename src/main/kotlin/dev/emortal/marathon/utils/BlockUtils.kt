@@ -10,8 +10,12 @@ import net.minestom.server.network.packet.server.play.EffectPacket
 //    sendGroupedPacket(BlockChangePacket(point, block.stateId().toInt()))
 //}
 
-fun PacketGroupingAudience.sendBlockDamage(point: Point, destroyStage: Byte) {
-    sendGroupedPacket(BlockBreakAnimationPacket(players.first().entityId, point, destroyStage))
+var howManyBlocksBroken = 0
+
+fun PacketGroupingAudience.sendBlockDamage(point: Point, destroyStage: Byte, blockIndex: Int? = null) {
+    // one "player" can't break two blocks at once. but it doesn't care if they're real or not sooooo
+    // mfw Int.MAX_VALUE players join emortal and breaks this
+    sendGroupedPacket(BlockBreakAnimationPacket(Int.MAX_VALUE - (blockIndex ?: howManyBlocksBroken++), point, destroyStage))
 }
 
 fun PacketGroupingAudience.breakBlock(point: Point, block: Block) {

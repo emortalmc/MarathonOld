@@ -14,10 +14,10 @@ repositories {
 }
 
 dependencies {
-    compileOnly("com.github.Minestom:Minestom:d6d1b85601")
+    compileOnly("com.github.Minestom:Minestom:b3d81f274c")
     compileOnly("com.github.EmortalMC:Immortal:ee19aec6bd")
     compileOnly("com.github.EmortalMC:NBStom:fd3da7bf91")
-    compileOnly("com.github.EmortalMC:TNT:f0680e2013")
+//    compileOnly("com.github.EmortalMC:TNT:f0680e2013")
 
 
     compileOnly("org.litote.kmongo:kmongo-coroutine-serialization:4.7.0")
