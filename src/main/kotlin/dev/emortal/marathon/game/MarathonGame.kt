@@ -7,16 +7,16 @@ import dev.emortal.immortal.util.armify
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.animation.BlockAnimator
 import dev.emortal.marathon.animation.PathAnimator
-import dev.emortal.marathon.commands.DiscCommand
 import dev.emortal.marathon.db.Highscore
 import dev.emortal.marathon.db.MongoStorage
 import dev.emortal.marathon.db.PlayerSettings
 import dev.emortal.marathon.generator.Generator
 import dev.emortal.marathon.generator.LegacyGenerator
-import dev.emortal.marathon.gui.MusicPlayerInventory
 import dev.emortal.marathon.utils.TimeFrame
 import dev.emortal.marathon.utils.firsts
 import dev.emortal.marathon.utils.updateOrCreateLine
+import dev.emortal.nbstom.MusicCommand
+import dev.emortal.nbstom.MusicPlayerInventory
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -144,11 +144,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     var blocks = CopyOnWriteArrayList<Pair<Point, Block>>()
 
+    val spectatorBoatMap = ConcurrentHashMap<UUID, Entity>()
+
     override var spawnPosition = SPAWN_POINT
-
-    init {
-
-    }
 
     override fun playerJoin(player: Player) = runBlocking {
 
@@ -357,8 +355,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         breakingTask?.cancel()
         actionBarTask?.cancel()
     }
-
-    val spectatorBoatMap = ConcurrentHashMap<UUID, Entity>()
 
     override fun spectatorJoin(player: Player) {
         player.isAutoViewable = false
@@ -790,7 +786,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     fun playSound(pitch: Float) {
-        if (DiscCommand.stopPlayingTaskMap.containsKey(players.first())) return
+        //if (MusicCommand.stopPlayingTaskMap.containsKey(players.first())) return
 
         playSound(
             Sound.sound(
