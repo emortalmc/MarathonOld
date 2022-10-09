@@ -15,12 +15,12 @@ repositories {
 
 dependencies {
     compileOnly("com.github.Minestom:Minestom:b3d81f274c")
-    compileOnly("com.github.EmortalMC:Immortal:ee19aec6bd")
-    compileOnly("com.github.EmortalMC:NBStom:fd3da7bf91")
+    compileOnly("com.github.EmortalMC:Immortal:ba273bb925")
+    compileOnly("com.github.EmortalMC:NBStom:303d0ba5ba")
 //    compileOnly("com.github.EmortalMC:TNT:f0680e2013")
 
 
-    compileOnly("org.litote.kmongo:kmongo-coroutine-serialization:4.7.0")
+    compileOnly("org.litote.kmongo:kmongo-coroutine-serialization:4.7.1")
 
     //implementation("com.github.KrystilizeNevaDies:Scaffolding:2303491258")
     compileOnly("com.github.EmortalMC:Acquaintance:b07cb2e120")

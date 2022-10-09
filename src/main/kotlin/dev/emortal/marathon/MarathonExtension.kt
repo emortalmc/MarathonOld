@@ -4,12 +4,12 @@ import dev.emortal.immortal.config.ConfigHelper
 import dev.emortal.immortal.config.GameOptions
 import dev.emortal.immortal.game.GameManager
 import dev.emortal.immortal.game.WhenToRegisterEvents
-import dev.emortal.marathon.commands.DiscCommand
 import dev.emortal.marathon.commands.SetScoreCommand
 import dev.emortal.marathon.commands.Top10Command
 import dev.emortal.marathon.config.DatabaseConfig
 import dev.emortal.marathon.db.MongoStorage
 import dev.emortal.marathon.game.MarathonGame
+import dev.emortal.nbstom.NBS
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -68,8 +68,7 @@ class MarathonExtension : Extension() {
 
         SetScoreCommand.register()
         Top10Command.register()
-        DiscCommand.register()
-        DiscCommand.refreshSongs()
+        NBS.registerCommands()
 
         logger.info("[${origin.name}] Initialized!")
     }
@@ -77,7 +76,6 @@ class MarathonExtension : Extension() {
     override fun terminate() {
         SetScoreCommand.unregister()
         Top10Command.unregister()
-        DiscCommand.unregister()
 
         MongoStorage.client?.close()
 
