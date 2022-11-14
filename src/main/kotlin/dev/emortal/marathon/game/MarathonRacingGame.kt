@@ -1,5 +1,5 @@
 package dev.emortal.marathon.game
-
+/*
 import dev.emortal.immortal.config.GameOptions
 import dev.emortal.immortal.game.Game
 import dev.emortal.immortal.util.MinestomRunnable
@@ -69,7 +69,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
     private var timerTask: Task? = null
     private var endGameTask: Task? = null
 
-    override var spawnPosition = SPAWN_POINT
+    override fun getSpawnPosition(player: Player, spectator: Boolean): Pos = SPAWN_POINT
 
     override fun playerJoin(player: Player) {
         player.gameMode = GameMode.SPECTATOR
@@ -357,4 +357,4 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
         return newInstance
     }
 
-}
+}*/

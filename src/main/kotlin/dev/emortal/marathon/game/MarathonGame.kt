@@ -1,22 +1,21 @@
 package dev.emortal.marathon.game
 
-import dev.emortal.immortal.config.GameOptions
 import dev.emortal.immortal.game.Game
 import dev.emortal.immortal.game.GameManager
 import dev.emortal.immortal.util.armify
 import dev.emortal.marathon.MarathonExtension
 import dev.emortal.marathon.animation.BlockAnimator
-import dev.emortal.marathon.animation.PathAnimator
 import dev.emortal.marathon.db.Highscore
 import dev.emortal.marathon.db.MongoStorage
 import dev.emortal.marathon.db.PlayerSettings
 import dev.emortal.marathon.generator.Generator
 import dev.emortal.marathon.generator.LegacyGenerator
 import dev.emortal.marathon.utils.TimeFrame
-import dev.emortal.marathon.utils.firsts
+import dev.emortal.marathon.utils.sendBlockDamage
 import dev.emortal.marathon.utils.updateOrCreateLine
-import dev.emortal.nbstom.MusicCommand
 import dev.emortal.nbstom.MusicPlayerInventory
+import dev.emortal.immortal.util.cancel
+import dev.emortal.marathon.animation.FallingSandAnimator
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -30,14 +29,15 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.player.PlayerChangeHeldSlotEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerSwapItemEvent
 import net.minestom.server.event.player.PlayerUseItemEvent
+import net.minestom.server.event.trait.InstanceEvent
 import net.minestom.server.instance.Instance
-import net.minestom.server.instance.batch.AbsoluteBlockBatch
 import net.minestom.server.instance.block.Block
 import net.minestom.server.item.Enchantment
 import net.minestom.server.item.ItemHideFlag
@@ -54,32 +54,28 @@ import org.tinylog.kotlin.Logger
 import world.cepi.kstom.Manager
 import world.cepi.kstom.adventure.noItalic
 import world.cepi.kstom.event.listenOnly
-import world.cepi.kstom.util.asPos
-import world.cepi.kstom.util.asVec
-import world.cepi.kstom.util.chunksInRange
-import world.cepi.kstom.util.roundToBlock
+import world.cepi.kstom.util.*
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
 import world.cepi.particle.data.OffsetAndSpeed
 import world.cepi.particle.extra.Dust
-import world.cepi.particle.renderer.Renderer
 import world.cepi.particle.showParticle
 import world.cepi.particle.util.Vectors
 import java.text.SimpleDateFormat
 import java.time.Duration
 import java.util.*
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.collections.ArrayDeque
 import kotlin.collections.set
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
-class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
+class MarathonGame : Game() {
 
     companion object {
         val SPAWN_POINT = Pos(0.5, 150.0, 0.5)
         val dateFormat = SimpleDateFormat("mm:ss")
-        val accurateDateFormat = SimpleDateFormat("mm:ss.SSS")
 
         val paletteTag = Tag.Integer("palette")
         val teleportingTag = Tag.Boolean("teleporting")
@@ -87,8 +83,16 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     }
 
+    override val maxPlayers: Int = 1
+    override val minPlayers: Int = 1
+    override val countdownSeconds: Int = 0
+    override val canJoinDuringGame: Boolean = false
+    override val showScoreboard: Boolean = true
+    override val showsJoinLeaveMessages: Boolean = false
+    override val allowsSpectators: Boolean = true
+
     val generator: Generator = LegacyGenerator
-    val animation: BlockAnimator = PathAnimator(this)
+    val animation: BlockAnimator = FallingSandAnimator
 
     // Amount of blocks in front of the player
     var length = 6
@@ -109,11 +113,9 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     var target = -1
 
     private var highscore: Highscore? = null
-    private var dailyHighscore: Highscore? = null
     private var weeklyHighscore: Highscore? = null
     private var monthlyHighscore: Highscore? = null
 
-    private var dailyPlacement: Int? = 0
     private var weeklyPlacement: Int? = 0
     private var monthlyPlacement: Int? = 0
 
@@ -123,47 +125,41 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     var invalidateRun = false
 
-    var blockPalette = BlockPalette.RAINBOW
+    var blockPalette = BlockPalette.OVERWORLD
         set(value) {
             if (blockPalette == value) return
 
             playSound(Sound.sound(value.soundEffect, Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
-
-            blocks.forEachIndexed { i, block ->
-                if (block.second == Block.DIAMOND_BLOCK) return@forEachIndexed
-                val newBlock = value.blocks.filter { it != block.second }.random()
-                instance.get()?.setBlock(block.first, newBlock)
-                blocks[i] = Pair(block.first, newBlock)
-            }
-            instance.get()?.entities?.filter { it.entityType == EntityType.FALLING_BLOCK }?.forEach {
+            instance!!.entities.filter { it.entityType == EntityType.FALLING_BLOCK }.forEach {
                 it.remove()
+            }
+
+            blocks.forEach {
+                instance!!.setBlock(it, value.blocks.random())
             }
 
             field = value
         }
 
-    var blocks = CopyOnWriteArrayList<Pair<Point, Block>>()
+    val blocks = ArrayDeque<Point>(length)
 
     val spectatorBoatMap = ConcurrentHashMap<UUID, Entity>()
 
-    override var spawnPosition = SPAWN_POINT
+    override fun getSpawnPosition(player: Player, spectator: Boolean): Pos = SPAWN_POINT
 
     override fun playerJoin(player: Player) = runBlocking {
 
         highscore = MarathonExtension.mongoStorage?.getHighscore(player.uuid, MongoStorage.leaderboard)
-        dailyHighscore = MarathonExtension.mongoStorage?.getHighscore(player.uuid, MongoStorage.daily)
         weeklyHighscore = MarathonExtension.mongoStorage?.getHighscore(player.uuid, MongoStorage.weekly)
         monthlyHighscore = MarathonExtension.mongoStorage?.getHighscore(player.uuid, MongoStorage.monthly)
 
         val highscorePoints = highscore?.score ?: 0
-//        val dailyPoints = dailyHighscore?.score ?: 0
-//        val weeklyPoints = weeklyHighscore?.score ?: 0
-//        val monthlyPoints = monthlyHighscore?.score ?: 0
         val placement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.leaderboard) ?: 0
-        dailyPlacement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.daily)
         weeklyPlacement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.weekly)
         monthlyPlacement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.monthly)
-        playerSettings = MarathonExtension.mongoStorage?.getSettings(player.uuid)
+
+//        playerSettings = MarathonExtension.mongoStorage?.getSettings(player.uuid)
+        playerSettings = PlayerSettings(player.uuid.toString())
 
         scoreboard?.createLine(
             Sidebar.ScoreboardLine(
@@ -187,19 +183,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         )
 
         var needsSpacer = false
-        if (dailyPlacement != null && dailyPlacement!! <= 10 && dailyHighscore != null) {
-            needsSpacer = true
-            scoreboard?.createLine(
-                Sidebar.ScoreboardLine(
-                    "dailyPlacementLine",
-                    Component.text()
-                        .append(Component.text("#${dailyPlacement}", NamedTextColor.GOLD))
-                        .append(Component.text(" on daily", NamedTextColor.GRAY))
-                        .build(),
-                    3
-                )
-            )
-        }
         if (weeklyPlacement != null && weeklyPlacement!! <= 10 && weeklyHighscore != null) {
             needsSpacer = true
             scoreboard?.createLine(
@@ -235,26 +218,23 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             )
         )
 
-        player.setHeldItemSlot(4)
-
-        val instance = instance.get()!!
+        player.setHeldItemSlot(1)
 
         when (playerSettings?.theme) {
-            "light" -> instance.time = 0
-            else -> instance.time = 18000
+            "night" -> instance!!.time = 18000
         }
 
-        //BlockPalette.values().forEachIndexed { i, it ->
-        //    val item = ItemStack.builder(it.displayItem)
-        //        .displayName(it.displayName.noItalic())
-        //        .meta { meta ->
-        //            meta.setTag(paletteTag, it.ordinal)
-        //            meta
-        //        }
-        //        .build()
-        //
-        //    player.inventory.setItemStack(i + 2, item)
-        //}
+        BlockPalette.values().forEachIndexed { i, it ->
+            val item = ItemStack.builder(it.displayItem)
+                .displayName(it.displayName.noItalic())
+                .meta { meta ->
+                    meta.setTag(paletteTag, it.ordinal)
+                }
+                .build()
+
+            player.inventory.setItemStack(i + 2, item)
+        }
+
         player.inventory.setItemStack(
             8,
             ItemStack.builder(Material.MUSIC_DISC_BLOCKS)
@@ -276,20 +256,14 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     override fun playerLeave(player: Player) {
-        playerSettings?.let { MarathonExtension.mongoStorage?.saveSettings(player.uuid, it) }
-        destroy()
+//        playerSettings?.let { MarathonExtension.mongoStorage?.saveSettings(player.uuid, it) }
+        end()
     }
 
-    override fun registerEvents() = with(eventNode) {
-        listenOnly<ItemDropEvent> {
-            isCancelled = true
-        }
-        listenOnly<InventoryPreClickEvent> {
-            isCancelled = true
-        }
-        listenOnly<PlayerSwapItemEvent> {
-            isCancelled = true
-        }
+    override fun registerEvents(eventNode: EventNode<InstanceEvent>) = with(eventNode) {
+        cancel<ItemDropEvent>()
+        cancel<InventoryPreClickEvent>()
+        cancel<PlayerSwapItemEvent>()
 
         listenOnly<PlayerUseItemEvent> {
             if (this.itemStack.material() == Material.MUSIC_DISC_BLOCKS) {
@@ -318,21 +292,23 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         }
 
         listenOnly<PlayerMoveEvent> {
+            if (player.hasTag(GameManager.spectatingTag)) return@listenOnly
             refreshSpectatorPosition(newPosition.add(0.0, 1.0, 0.0))
 
-            if (!player.hasTag(teleportingTag)) checkPosition(player, newPosition)
+            synchronized(blocks) {
+                if (!player.hasTag(teleportingTag)) checkPosition(player, newPosition)
 
-            val posUnderPlayer = newPosition.sub(0.0, 1.0, 0.0).roundToBlock().asPos()
-            val pos2UnderPlayer = newPosition.sub(0.0, 2.0, 0.0).roundToBlock().asPos()
+                val posUnderPlayer = newPosition.sub(0.0, 1.0, 0.0).roundToBlock().asPos()
+                val pos2UnderPlayer = newPosition.sub(0.0, 2.0, 0.0).roundToBlock().asPos()
 
-            val blockPositions = blocks.firsts()
 
-            var index = blockPositions.indexOf(pos2UnderPlayer)
+                var index = blocks.indexOf(pos2UnderPlayer)
 
-            if (index == -1) index = blockPositions.indexOf(posUnderPlayer)
-            if (index == -1 || index == 0) return@listenOnly
+                if (index == -1) index = blocks.indexOf(posUnderPlayer)
+                if (index == -1 || index == 0) return@listenOnly
 
-            generateNextBlock(index, true)
+                generateNextBlock(index, true)
+            }
         }
 
         listenOnly<PlayerChangeHeldSlotEvent> {
@@ -348,12 +324,23 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     override fun gameStarted() {
         startTimestamp = System.currentTimeMillis()
         scoreboard?.removeLine("infoLine")
-        reset()
+        reset(players.first())
     }
 
-    override fun gameDestroyed() {
+    override fun gameEnded() {
         breakingTask?.cancel()
         actionBarTask?.cancel()
+        breakingTask = null
+        actionBarTask = null
+
+        highscore = null
+        weeklyHighscore = null
+        monthlyHighscore = null
+
+        blocks.clear()
+        spectatorBoatMap.clear()
+
+        playerSettings = null
     }
 
     override fun spectatorJoin(player: Player) {
@@ -368,17 +355,13 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         spectatorBoatMap.remove(player.uuid)
     }
 
-    private fun reset() = runBlocking {
-        val instance = instance.get()!!
-        val player = players.first()
-
+    private fun reset(player: Player) = runBlocking {
         breakingTask?.cancel()
-        animation.flushBreakAnimations()
         breakingTask = null
 
         if (score == 0) {
-            instance.chunksInRange(Pos.ZERO, 3).forEach {
-                val chunk = instance.getChunk(it.first, it.second)
+            instance!!.chunksInRange(Pos.ZERO, 3).forEach {
+                val chunk = instance!!.getChunk(it.first, it.second)
                 chunk?.sendChunk(player)
             }
 
@@ -394,29 +377,24 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         combo = 0
         finalBlockPos = Pos(0.0, SPAWN_POINT.y - 1.0, 0.0)
 
-        val batch = AbsoluteBlockBatch()
-        blocks.forEach { block ->
-            if (block.second == Block.GRASS_BLOCK) return@forEach
-            instance.setBlock(block.first, Block.AIR)
+        synchronized(blocks) {
+            blocks.forEach { block ->
+                instance!!.setBlock(block, Block.AIR)
+            }
+
+            blocks.clear()
+            blocks.add(SPAWN_POINT.sub(0.0, 1.0, 0.0))
         }
 
-        blocks.clear()
-        instance.setBlock(spawnPosition.sub(0.0, 1.0, 0.0), Block.ORANGE_CONCRETE)
-        blocks.add(Pair(spawnPosition.sub(0.0, 1.0, 0.0), Block.ORANGE_CONCRETE))
-
-        animation.tasks.forEach {
-            it.cancel()
-        }
-        animation.tasks.clear()
-
-        instance.entities.filter { it !is Player && it.entityType != EntityType.BOAT }.forEach { it.remove() }
+        instance!!.setBlock(SPAWN_POINT.sub(0.0, 1.0, 0.0), Block.ORANGE_CONCRETE)
+        instance!!.entities.filter { it !is Player && it.entityType != EntityType.BOAT }.forEach { it.remove() }
 
         passedHighscore = false
 
-        spectators.forEach {
+        instance!!.players.filter { it.hasTag(GameManager.spectatingTag) }.forEach {
             it.stopSpectating()
             it.teleport(SPAWN_POINT).thenRun {
-                respawnBoat(it, SPAWN_POINT)
+                respawnBoat(it, SPAWN_POINT.add(0.0, 1.0, 0.0))
             }
         }
 
@@ -449,7 +427,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         if (inGame) {
 
             if (startTimestamp == -1L) {
-                actionBarTask = Manager.scheduler.buildTask { updateActionBar() }
+                actionBarTask = instance!!.scheduler().buildTask { updateActionBar() }
                     .repeat(Duration.ofSeconds(1))
                     .schedule()
                 startTimestamp = System.currentTimeMillis()
@@ -502,11 +480,11 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         entity.setNoGravity(true)
         entity.updateViewableRule { it == spectator }
 
-        var newPos = position.apply { _, y, z, _, _ -> Pos(blocks.sumOf { it.first.x() } / blocks.size, y + 3, z - 6) }
-        newPos = newPos.withDirection(position.sub(newPos))
+        synchronized(blocks) {
+            var newPos = position.apply { _, y, z, _, _ -> Pos(blocks.sumOf { it.x() } / blocks.size, y + 3, z - 6) }
+            newPos = newPos.withDirection(position.sub(newPos))
 
-        instance.get()?.let {
-            entity.setInstance(it, newPos).thenRun {
+            entity.setInstance(instance!!, newPos).thenRun {
                 spectator.scheduleNextTick {
                     spectator.spectate(entity)
                 }
@@ -516,75 +494,94 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     fun refreshSpectatorPosition(position: Pos) {
-        var newPos = position.apply { _, y, z, _, _ -> Pos(blocks.sumOf { it.first.x() } / blocks.size, y + 3, z - 6) }
-        newPos = newPos.withDirection(position.sub(newPos))
-        spectatorBoatMap.values.filter { it.isActive }.forEach {
-            it.teleport(newPos)
-        }
-        spectators.filter { it.isActive }.forEach {
-            it.teleport(newPos)
+        synchronized(blocks) {
+            var newPos = position.apply { _, y, z, _, _ -> Pos(blocks.sumOf { it.x() } / blocks.size, y + 3, z - 6) }
+            newPos = newPos.withDirection(position.sub(newPos))
+            spectatorBoatMap.values.filter { it.isActive }.forEach {
+                it.teleport(newPos)
+            }
+            instance!!.players.filter { it.hasTag(GameManager.spectatingTag) }.forEach {
+                it.teleport(newPos)
+            }
         }
     }
 
     fun generateNextBlock(inGame: Boolean = true) {
+        synchronized(blocks) {
+            if (inGame && blocks.size > length) {
+                animation.destroyBlockAnimated(this, blocks.first(), Block.AIR)
 
-        if (inGame && blocks.size > length) {
-            animation.destroyBlockAnimated(blocks[0].first)
+                blocks.removeFirst()
+            }
 
-            blocks.removeAt(0)
+            if (finalBlockPos.y() == SPAWN_POINT.y) targetY =
+                0 else if (finalBlockPos.y() < SPAWN_POINT.blockY() - 17 || finalBlockPos.y() > SPAWN_POINT.blockY() + 30) targetY = SPAWN_POINT.blockY()
+
+            finalBlockPos = generator.getNextPosition(finalBlockPos, targetX, targetY, score)
+
+
+            val newPaletteBlock = blockPalette.blocks.random()
+
+            val newPaletteBlockPos = finalBlockPos
+
+            val lastBlock = blocks.last()
+            if (inGame) animation.setBlockAnimated(this, newPaletteBlockPos, newPaletteBlock, lastBlock)
+            else {
+                instance!!.setBlock(newPaletteBlockPos, newPaletteBlock)
+
+                showParticle(
+                    Particle.particle(
+                        type = ParticleType.DUST,
+                        count = 1,
+                        data = OffsetAndSpeed(0f, 0f, 0f, 0f),
+                        extraData = Dust(1f, 0f, 1f, 1.25f)
+                    ),
+                    Vectors(newPaletteBlockPos.asVec().add(0.5, 0.5, 0.5), lastBlock.asVec().add(0.5, 0.5, 0.5), 0.35)
+                )
+            }
+
+            blocks.add(newPaletteBlockPos)
+
+//        showParticle(
+//            Particle.particle(
+//                type = ParticleType.DUST,
+//                count = 1,
+//                data = OffsetAndSpeed(),//OffsetAndSpeed(0f, 0f, 0f, 0.05f),
+//                extraData = Dust(1f, 0.25f, 1f, 0.9f)
+//                //), finalBlockPos.asVec().add(0.5, 0.5, 0.5))
+//            ),
+//            Renderer.fixedRectangle(
+//                finalBlockPos.asVec().sub(0.1, 0.1, 0.1),
+//                finalBlockPos.add(1.1, 1.1, 1.1).asVec(),
+//                0.5
+//            )
+//        )
         }
-
-        if (finalBlockPos.y() == SPAWN_POINT.y) targetY =
-            0 else if (finalBlockPos.y() < SPAWN_POINT.blockY() - 17 || finalBlockPos.y() > SPAWN_POINT.blockY() + 30) targetY = SPAWN_POINT.blockY()
-
-        finalBlockPos = generator.getNextPosition(finalBlockPos, targetX, targetY, score)
-
-
-        //val newPaletteBlock = blockPalette.blocks.filter { it != blocks.last().second }.random()
-        val newPaletteBlock =
-            blockPalette.blocks[(blockPalette.blocks.indexOf(blocks.last().second) + 1) % blockPalette.blocks.size]
-        val newPaletteBlockPos = finalBlockPos
-
-        val lastBlock = blocks.last()
-        if (inGame) animation.setBlockAnimated(newPaletteBlockPos, newPaletteBlock, lastBlock.first)
-        else {
-            instance.get()?.setBlock(newPaletteBlockPos, newPaletteBlock)
-
-            showParticle(
-                Particle.particle(
-                    type = ParticleType.DUST,
-                    count = 1,
-                    data = OffsetAndSpeed(0f, 0f, 0f, 0f),
-                    extraData = Dust(1f, 0f, 1f, 1.25f)
-                ),
-                Vectors(newPaletteBlockPos.asVec().add(0.5, 0.5, 0.5), lastBlock.first.asVec().add(0.5, 0.5, 0.5), 0.35)
-            )
-        }
-
-        blocks.add(Pair(newPaletteBlockPos, newPaletteBlock))
-
-        showParticle(
-            Particle.particle(
-                type = ParticleType.DUST,
-                count = 1,
-                data = OffsetAndSpeed(),//OffsetAndSpeed(0f, 0f, 0f, 0.05f),
-                extraData = Dust(1f, 0.25f, 1f, 0.9f)
-                //), finalBlockPos.asVec().add(0.5, 0.5, 0.5))
-            ),
-            Renderer.fixedRectangle(
-                finalBlockPos.asVec().sub(0.1, 0.1, 0.1),
-                finalBlockPos.add(1.1, 1.1, 1.1).asVec(),
-                0.5
-            )
-        )
-
     }
 
     private fun createBreakingTask() {
-        breakingTask?.cancel()
-        breakingTask = MinecraftServer.getSchedulerManager().buildTask {
-            animation.destroyBlockAnimated(blocks[0].first, true)
-        }.delay(2000, TimeUnit.MILLISECOND).schedule()
+        synchronized(blocks) {
+            currentBreakingProgress = 0
+
+            breakingTask?.cancel()
+            breakingTask = instance!!.scheduler().buildTask {
+                if (blocks.size < 1) return@buildTask
+
+                val block = blocks[0]
+
+                currentBreakingProgress += 2
+
+                if (currentBreakingProgress > 8) {
+                    generateNextBlock()
+                    createBreakingTask()
+
+                    return@buildTask
+                }
+
+                playSound(Sound.sound(SoundEvent.BLOCK_WOOD_HIT, Sound.Source.BLOCK, 0.5f, 1f), block)
+                sendBlockDamage(block, currentBreakingProgress.toByte())
+            }.delay(2000, TimeUnit.MILLISECOND).repeat(500, TimeUnit.MILLISECOND).schedule()
+        }
     }
 
     private fun updateActionBar() {
@@ -618,14 +615,14 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         var minZ = Integer.MAX_VALUE
 
         blocks.forEach {
-            if (it.first.blockY() > maxY) maxY = it.first.blockY()
-            if (it.first.blockY() < minY) minY = it.first.blockY()
+            if (it.blockY() > maxY) maxY = it.blockY()
+            if (it.blockY() < minY) minY = it.blockY()
 
-            if (it.first.blockZ() < minZ) minZ = it.first.blockZ()
-            if (it.first.blockZ() > maxZ) maxZ = it.first.blockZ()
+            if (it.blockZ() < minZ) minZ = it.blockZ()
+            if (it.blockZ() > maxZ) maxZ = it.blockZ()
 
-            if (it.first.blockX() > maxX) maxX = it.first.blockX()
-            if (it.first.blockX() < minX) minX = it.first.blockX()
+            if (it.blockX() > maxX) maxX = it.blockX()
+            if (it.blockX() < minX) minX = it.blockX()
         }
 
 
@@ -637,23 +634,23 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         // Check for player too far down
         if ((minY - 3.0) > position.y) {
             player.setTag(teleportingTag, true)
-            reset()
+            reset(player)
         }
 
         // Check for player too far behind
         if (minZ - 5 > position.z) {
             player.setTag(teleportingTag, true)
             //player.teleport(SPAWN_POINT)
-            reset()
+            reset(player)
         }
 
         if (maxX + 6 < position.x) {
             player.setTag(teleportingTag, true)
-            reset()
+            reset(player)
         }
         if (minX - 6 > position.x) {
             player.setTag(teleportingTag, true)
-            reset()
+            reset(player)
         }
 
     }
@@ -716,7 +713,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
             MarathonExtension.mongoStorage?.setHighscore(newHighscoreObject, MongoStorage.leaderboard)
         }
 
-        val dailyScore = dailyHighscore?.score ?: 0
         val weeklyScore = weeklyHighscore?.score ?: 0
         val monthlyScore = monthlyHighscore?.score ?: 0
 
@@ -725,17 +721,17 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         TimeFrame.values().forEachIndexed { i, it ->
             val timeFrameScore = when (it) {
-                TimeFrame.DAILY -> dailyScore
                 TimeFrame.WEEKLY -> weeklyScore
                 TimeFrame.MONTHLY -> monthlyScore
                 TimeFrame.LIFETIME -> return@forEachIndexed
             }
 
             if (score > timeFrameScore) {
-                val placement = MarathonExtension.mongoStorage?.getPlacementByScore(timeFrameScore, it.collection) ?: 11
+                MarathonExtension.mongoStorage?.setHighscore(newHighscoreObject, it.collection)
+
+                val placement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, it.collection) ?: 11
 
                 val previousPlacement = when (it) {
-                    TimeFrame.DAILY -> dailyPlacement
                     TimeFrame.WEEKLY -> weeklyPlacement
                     TimeFrame.MONTHLY -> monthlyPlacement
                     else -> 0
@@ -762,10 +758,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                     }
 
                     when (it) {
-                        TimeFrame.DAILY -> {
-                            dailyHighscore = newHighscoreObject
-                            dailyPlacement = placement
-                        }
                         TimeFrame.WEEKLY -> {
                             weeklyHighscore = newHighscoreObject
                             weeklyPlacement = placement
@@ -776,7 +768,6 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
                         }
                         else -> {}
                     }
-                    MarathonExtension.mongoStorage?.setHighscore(newHighscoreObject, it.collection)
                 }
             }
 
@@ -803,7 +794,7 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
     override fun victory(winningPlayers: Collection<Player>) {
     }
 
-    override fun instanceCreate(): Instance {
+    override fun instanceCreate(): CompletableFuture<Instance> {
 
         val dimension = Manager.dimensionType.getDimension(NamespaceID.from("fullbright"))!!
         val newInstance = Manager.instance.createInstanceContainer(dimension)
@@ -812,14 +803,14 @@ class MarathonGame(gameOptions: GameOptions) : Game(gameOptions) {
         newInstance.timeUpdate = null
         //newInstance.setBlock(0, SPAWN_POINT.blockY() - 1, 0, Block.ORANGE_CONCRETE)
 
-        newInstance.setTag(GameManager.doNotUnloadChunksIndex, ChunkUtils.getChunkIndex(0, 0))
-        newInstance.setTag(GameManager.doNotUnloadChunksRadius, 3)
+//        newInstance.setTag(GameManager.doNotUnloadChunksIndex, ChunkUtils.getChunkIndex(0, 0))
+//        newInstance.setTag(GameManager.doNotUnloadChunksRadius, 3)
 
         //val tntSource = FileTNTSource(Path.of("./starter.tnt"))
         //newInstance.chunkLoader = TNTLoader(tntSource, Vec(0.0, (SPAWN_POINT.blockY() - 65).toDouble(), 0.0))
         //newInstance.chunkLoader = AnvilLoader("./starter.tnt")
 
-        return newInstance
+        return CompletableFuture.completedFuture(newInstance)
     }
 
 }

@@ -10,12 +10,14 @@ plugins {
 
 repositories {
     mavenCentral()
+    mavenLocal()
     maven("https://jitpack.io")
 }
 
 dependencies {
-    compileOnly("com.github.Minestom:Minestom:b3d81f274c")
-    compileOnly("com.github.EmortalMC:Immortal:ba273bb925")
+    compileOnly("com.github.Minestom:Minestom:42195c536b")
+//    compileOnly("com.github.EmortalMC:Immortal:5b2b3a057a")
+    compileOnly("dev.emortal.immortal:Immortal:3.0.1")
     compileOnly("com.github.EmortalMC:NBStom:303d0ba5ba")
 //    compileOnly("com.github.EmortalMC:TNT:f0680e2013")
 
@@ -23,7 +25,7 @@ dependencies {
     compileOnly("org.litote.kmongo:kmongo-coroutine-serialization:4.7.2")
 
     //implementation("com.github.KrystilizeNevaDies:Scaffolding:2303491258")
-    compileOnly("com.github.EmortalMC:Acquaintance:b07cb2e120")
+    compileOnly("com.github.EmortalMC:Acquaintance:95a47b101c")
 
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")

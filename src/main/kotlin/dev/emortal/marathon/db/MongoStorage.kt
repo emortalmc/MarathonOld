@@ -34,27 +34,25 @@ class MongoStorage {
 
         var leaderboard: CoroutineCollection<Highscore>? = null
 
-        var daily: CoroutineCollection<Highscore>? = null
         var weekly: CoroutineCollection<Highscore>? = null
         var monthly: CoroutineCollection<Highscore>? = null
 
-        var playerSettings: CoroutineCollection<PlayerSettings>? = null
+//        var playerSettings: CoroutineCollection<PlayerSettings>? = null
 
         var resetCollection: CoroutineCollection<ResetTimes>? = null
     }
+
+    val mongoScope = CoroutineScope(Dispatchers.IO)
 
     fun init() {
         client = KMongo.createClient(MarathonExtension.databaseConfig.connectionString).coroutine
         database = client!!.getDatabase("Marathon")
 
         leaderboard = database!!.getCollection("leaderboard")
-        daily = database!!.getCollection("dailylb")
         weekly = database!!.getCollection("weeklylb")
         monthly = database!!.getCollection("monthlylb")
 
         resetCollection = database!!.getCollection("resetTimes")
-
-        val mongoScope = CoroutineScope(Dispatchers.IO)
 
         // Reset logic
         mongoScope.launch {
@@ -73,13 +71,6 @@ class MongoStorage {
 
                 var resetTimes = resetCollection?.findOne()!!
                 val nowSeconds = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-
-                if (resetTimes.dailyResetTimestamp < nowSeconds) {
-                    daily?.drop() // Clear daily
-                    val newResetTimes = resetTimes.copy(dailyResetTimestamp = tomorrow)
-                    resetCollection?.replaceOne("{}", newResetTimes)
-                    resetTimes = newResetTimes
-                }
                 if (resetTimes.weeklyResetTimestamp < nowSeconds) {
                     weekly?.drop() // Clear weekly
                     val newResetTimes = resetTimes.copy(weeklyResetTimestamp = nextWeek)
@@ -93,66 +84,55 @@ class MongoStorage {
                 }
             }
 
-            val durationUntilTomorrow = Duration.ofSeconds(tomorrow - now)
             val durationUntilNextWeek = Duration.ofSeconds(nextWeek - now)
             val durationUntilNextMonth = Duration.ofSeconds(nextMonth - now)
 
-            Logger.info("Daily will reset in ${tomorrow - now}s")
             Logger.info("Weekly will reset in ${nextWeek - now}s")
             Logger.info("Monthly will reset in ${nextMonth - now}s")
 
             var resetTimes = resetCollection?.findOne()!!
 
-            object : CoroutineRunnable(coroutineScope = mongoScope, delay = durationUntilTomorrow, repeat = durationUntilTomorrow) {
-                override suspend fun run() {
-                    val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                    val tomorrow = LocalDateTime.now().truncatedTo(ChronoUnit.DAYS).plusDays(1).toEpochSecond(ZoneOffset.UTC)
+            object : MinestomRunnable(group = null, delay = durationUntilNextWeek, repeat = durationUntilNextWeek) {
+                override fun run() {
+                    mongoScope.launch {
+                        val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                        val nextWeek = LocalDateTime.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
 
-                    Logger.info("Cleared daily leaderboard!")
-                    daily?.drop()
-                    val newResetTimes = resetTimes.copy(dailyResetTimestamp = tomorrow)
-                    resetCollection?.replaceOne("{}", resetTimes.copy(dailyResetTimestamp = tomorrow))
+                        Logger.info("Cleared weekly leaderboard!")
+                        weekly?.drop()
+                        val newResetTimes = resetTimes.copy(weeklyResetTimestamp = nextWeek)
+                        resetCollection?.replaceOne("{}", resetTimes.copy(weeklyResetTimestamp = nextWeek))
 
-                    repeat = Duration.ofSeconds(tomorrow - now)
-                    resetTimes = newResetTimes
+                        repeat = Duration.ofSeconds(nextWeek - now)
+                        resetTimes = newResetTimes
+                    }
                 }
             }
 
-            object : CoroutineRunnable(coroutineScope = mongoScope, delay = durationUntilNextWeek, repeat = durationUntilNextWeek) {
-                override suspend fun run() {
-                    val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                    val nextWeek = LocalDateTime.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
+            object : MinestomRunnable(group = null, delay = durationUntilNextMonth, repeat = durationUntilNextMonth) {
+                override fun run() {
+                    mongoScope.launch {
+                        val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                        val nextMonth = LocalDateTime.now().with(TemporalAdjusters.firstDayOfNextMonth()).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
 
-                    Logger.info("Cleared weekly leaderboard!")
-                    weekly?.drop()
-                    val newResetTimes = resetTimes.copy(weeklyResetTimestamp = nextWeek)
-                    resetCollection?.replaceOne("{}", resetTimes.copy(weeklyResetTimestamp = nextWeek))
+                        Logger.info("Cleared monthly leaderboard!")
+                        monthly?.drop()
+                        val newResetTimes = resetTimes.copy(monthlyResetTimestamp = nextMonth)
+                        resetCollection?.replaceOne("{}", resetTimes.copy(monthlyResetTimestamp = nextMonth))
 
-                    repeat = Duration.ofSeconds(nextWeek - now)
-                    resetTimes = newResetTimes
-                }
-            }
-
-            object : CoroutineRunnable(coroutineScope = mongoScope, delay = durationUntilNextMonth, repeat = durationUntilNextMonth) {
-                override suspend fun run() {
-                    val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                    val nextMonth = LocalDateTime.now().with(TemporalAdjusters.firstDayOfNextMonth()).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
-
-                    Logger.info("Cleared monthly leaderboard!")
-                    monthly?.drop()
-                    val newResetTimes = resetTimes.copy(monthlyResetTimestamp = nextMonth)
-                    resetCollection?.replaceOne("{}", resetTimes.copy(monthlyResetTimestamp = nextMonth))
-
-                    repeat = Duration.ofSeconds(nextMonth - now)
-                    resetTimes = newResetTimes
+                        repeat = Duration.ofSeconds(nextMonth - now)
+                        resetTimes = newResetTimes
+                    }
                 }
             }
         }
 
     }
 
-    fun setHighscore(highscore: Highscore, collection: CoroutineCollection<Highscore>?): Unit = runBlocking {
-        collection?.replaceOne(Highscore::uuid eq highscore.uuid, highscore, ReplaceOptions().upsert(true))
+    fun setHighscore(highscore: Highscore, collection: CoroutineCollection<Highscore>?) {
+        mongoScope.launch {
+            collection?.replaceOne(Highscore::uuid eq highscore.uuid, highscore, ReplaceOptions().upsert(true))
+        }
     }
 
     suspend fun getHighscore(uuid: UUID, collection: CoroutineCollection<Highscore>?): Highscore? =
@@ -162,7 +142,6 @@ class MongoStorage {
         collection?.find()
             ?.ascendingSort(Highscore::timeTaken) // but with lowest time
             ?.descendingSort(Highscore::score) // Find highest score
-            //?.descendingSort(Highscore::timeTaken) // but with lowest time
 
             ?.limit(amount)
             ?.toList()
@@ -177,11 +156,11 @@ class MongoStorage {
         return (collection?.find(Highscore::score gt highscore.score)?.toFlow()?.count() ?: 0) + 1
     }
 
-    suspend fun getSettings(uuid: UUID): PlayerSettings =
-        playerSettings?.findOne(PlayerSettings::uuid eq uuid.toString())
-        ?: PlayerSettings(uuid = uuid.toString())
-
-    fun saveSettings(uuid: UUID, settings: PlayerSettings) = runBlocking {
-        playerSettings?.replaceOne(PlayerSettings::uuid eq settings.uuid, settings, ReplaceOptions().upsert(true))
-    }
+//    suspend fun getSettings(uuid: UUID): PlayerSettings =
+//        playerSettings?.findOne(PlayerSettings::uuid eq uuid.toString())
+//        ?: PlayerSettings(uuid = uuid.toString())
+//
+//    fun saveSettings(uuid: UUID, settings: PlayerSettings) = runBlocking {
+//        playerSettings?.replaceOne(PlayerSettings::uuid eq settings.uuid, settings, ReplaceOptions().upsert(true))
+//    }
 }

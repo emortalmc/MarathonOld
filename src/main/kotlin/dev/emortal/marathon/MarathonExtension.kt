@@ -1,9 +1,7 @@
 package dev.emortal.marathon
 
 import dev.emortal.immortal.config.ConfigHelper
-import dev.emortal.immortal.config.GameOptions
 import dev.emortal.immortal.game.GameManager
-import dev.emortal.immortal.game.WhenToRegisterEvents
 import dev.emortal.marathon.commands.SetScoreCommand
 import dev.emortal.marathon.commands.Top10Command
 import dev.emortal.marathon.config.DatabaseConfig
@@ -40,30 +38,13 @@ class MarathonExtension : Extension() {
         GameManager.registerGame<MarathonGame>(
             "marathon",
             Component.text("Marathon", NamedTextColor.RED, TextDecoration.BOLD),
-            showsInSlashPlay = true,
-            canSpectate = true,
-            WhenToRegisterEvents.GAME_START,
-            GameOptions(
-                maxPlayers = 1,
-                minPlayers = 1,
-                countdownSeconds = 0,
-                showsJoinLeaveMessages = false,
-                allowsSpectators = true
-            )
+            showsInSlashPlay = true
         )
 
         /*GameManager.registerGame<MarathonRacingGame>(
             "marathonracing",
             Component.text("Marathon Racing", NamedTextColor.RED, TextDecoration.BOLD),
-            showsInSlashPlay = true,
-            canSpectate = true,
-            WhenToRegisterEvents.GAME_START,
-            GameOptions(
-                maxPlayers = 8,
-                minPlayers = 2,
-                //countdownSeconds = 0,
-                showsJoinLeaveMessages = true
-            )
+            showsInSlashPlay = true
         )*/
 
         SetScoreCommand.register()

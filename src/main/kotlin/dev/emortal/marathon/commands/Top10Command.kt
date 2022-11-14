@@ -17,7 +17,6 @@ import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.command.CommandSender
 import net.minestom.server.command.builder.arguments.ArgumentString
 import net.minestom.server.entity.Player
-import net.minestom.server.network.packet.server.play.EntityAnimationPacket
 import world.cepi.kstom.command.arguments.suggest
 import world.cepi.kstom.command.kommand.Kommand
 import java.time.DayOfWeek
@@ -48,9 +47,8 @@ object Top10Command : Kommand({
 
 }, "top10", "leaderboard", "lb") {
 
-    suspend fun runCommand(sender: CommandSender, timeFrame: TimeFrame = TimeFrame.WEEKLY) {
+    suspend fun runCommand(sender: CommandSender, timeFrame: TimeFrame = TimeFrame.MONTHLY) {
         val highscores = MarathonExtension.mongoStorage?.getTopHighscores(10, timeFrame.collection) ?: return
-
 
         val message = Component.text()
             .append(Component.text(centerText("${timeFrame.lyName.replaceFirstChar(Char::uppercase)} Marathon Leaderboard", bold = true), NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
@@ -65,7 +63,10 @@ object Top10Command : Kommand({
 
         var i = 1
         highscores.forEach {
-            val playerUsername = UUID.fromString(it.uuid).getCachedUsername() ?: "???"
+            val playerUsername = it.uuid.getCachedUsername().also { name ->
+                // temporary fix for weird redisson issue
+                if (name?.contains(">") == true) name.takeLast(name.length - 3)
+            } ?: "???"
 
             //val formattedTime: String = MarathonGame.dateFormat.format(Date(it.value.time))
 
@@ -135,14 +136,12 @@ object Top10Command : Kommand({
         }
 
         val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-        val tomorrow = LocalDateTime.now().truncatedTo(ChronoUnit.DAYS).plusDays(1).toEpochSecond(ZoneOffset.UTC)
         val nextWeek = LocalDateTime.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(
             ZoneOffset.UTC)
         val nextMonth = LocalDateTime.now().with(TemporalAdjusters.firstDayOfNextMonth()).truncatedTo(ChronoUnit.DAYS).toEpochSecond(
             ZoneOffset.UTC)
 
         val resetSeconds = when (timeFrame) {
-            TimeFrame.DAILY -> tomorrow - now
             TimeFrame.WEEKLY -> nextWeek - now
             TimeFrame.MONTHLY -> nextMonth - now
             else -> 0L

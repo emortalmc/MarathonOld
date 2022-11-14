@@ -9,7 +9,6 @@ inline fun <reified T : Enum<*>> enumValueOrNull(name: String): T? =
 
 enum class TimeFrame(val lyName: String, val collection: CoroutineCollection<Highscore>?) {
     LIFETIME("lifetime", MongoStorage.leaderboard),
-    DAILY("daily", MongoStorage.daily),
     WEEKLY("weekly", MongoStorage.weekly),
     MONTHLY("monthly", MongoStorage.monthly)
 }

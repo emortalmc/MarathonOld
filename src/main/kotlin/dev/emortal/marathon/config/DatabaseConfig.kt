@@ -5,10 +5,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 class DatabaseConfig(
     val enabled: Boolean = false,
-    val address: String = "",
-    val port: String = "3306",
-    val tableName: String = "",
-    val username: String = "",
-    val password: String = "",
-    val connectionString: String = ""
+    val connectionString: String = "mongodb://172.17.0.1:27017"
 )

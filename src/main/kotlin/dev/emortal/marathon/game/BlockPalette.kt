@@ -29,12 +29,26 @@ enum class BlockPalette(
     THEEND(
         Material.END_STONE,
         Component.text("End", NamedTextColor.LIGHT_PURPLE),
-        SoundEvent.ENTITY_ENDERMAN_TELEPORT,
+        SoundEvent.BLOCK_ENDER_CHEST_OPEN,
         Block.END_STONE,
         Block.END_STONE_BRICKS,
         Block.PURPUR_BLOCK,
         Block.PURPUR_PILLAR,
         Block.OBSIDIAN,
+    ),
+
+    RAINBOW(
+        Material.PINK_WOOL,
+        "<rainbow>Rainbow".asMini(),
+        SoundEvent.BLOCK_WOOL_BREAK,
+        Block.RED_WOOL,
+        Block.ORANGE_WOOL,
+        Block.YELLOW_WOOL,
+        Block.LIME_WOOL,
+        Block.LIGHT_BLUE_WOOL,
+        Block.CYAN_WOOL,
+        Block.PINK_WOOL,
+        Block.MAGENTA_WOOL
     ),
 
     NETHER(
@@ -74,30 +88,10 @@ enum class BlockPalette(
         Block.ANDESITE,
         Block.DEEPSLATE,
         Block.IRON_ORE,
-        Block.DEEPSLATE_IRON_ORE,
         Block.DIAMOND_ORE,
-        Block.DEEPSLATE_DIAMOND_ORE,
         Block.EMERALD_ORE,
-        Block.DEEPSLATE_EMERALD_ORE,
         Block.REDSTONE_ORE,
-        Block.DEEPSLATE_REDSTONE_ORE,
         Block.COAL_ORE,
-        Block.DEEPSLATE_COAL_ORE,
         Block.LAPIS_ORE,
-        Block.DEEPSLATE_LAPIS_ORE
-    ),
-
-    RAINBOW(
-        Material.PINK_WOOL,
-        "<rainbow>Rainbow".asMini(),
-        SoundEvent.BLOCK_WOOL_BREAK,
-        Block.RED_WOOL,
-        Block.ORANGE_WOOL,
-        Block.YELLOW_WOOL,
-        Block.LIME_WOOL,
-        Block.LIGHT_BLUE_WOOL,
-        Block.CYAN_WOOL,
-        Block.PINK_WOOL,
-        Block.MAGENTA_WOOL
     )
 }
