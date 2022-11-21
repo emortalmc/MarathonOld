@@ -16,6 +16,7 @@ import world.cepi.particle.data.OffsetAndSpeed
 import world.cepi.particle.extra.Dust
 import world.cepi.particle.showParticle
 import world.cepi.particle.util.Vectors
+import java.lang.ref.WeakReference
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.PI
@@ -23,38 +24,31 @@ import kotlin.math.pow
 
 class PathAnimator : BlockAnimator() {
 
+    var lastSandEntity: WeakReference<Entity> = WeakReference(null)
+
+    private fun getLastPos(): Point? {
+        //if (lastSandEntity.get() == null) return null
+        return lastSandEntity.get()?.position?.sub(0.5, 0.0, 0.5)
+    }
+
     override fun setBlockAnimated(game: Game, point: Point, block: Block, lastPoint: Point) {
         val timeToAnimate = 0.4
+        val actualLastPoint = getLastPos() ?: lastPoint
 
-        val fallingBlock = Entity(EntityType.FALLING_BLOCK)
+        val fallingBlock = NoPhysicsEntity(EntityType.FALLING_BLOCK)
         val fallingBlockMeta = fallingBlock.entityMeta as FallingBlockMeta
 
         fallingBlock.setNoGravity(true)
         fallingBlockMeta.block = block
 
-        fallingBlock.setInstance(game.instance!!, lastPoint.add(0.5, 0.0, 0.5))
+        fallingBlock.velocity = point
+            .sub(actualLastPoint)
+            .asVec()
+            .normalize()
+            .mul((1 / timeToAnimate) * 1.15 * point.distance(actualLastPoint))
 
-        val distance = point.distance(lastPoint)
-        var vec = point.sub(lastPoint).asVec()
-        var i = 0
-        fallingBlock.scheduler().submitTask {
-            if (i >= 20) {
-                Logger.info("Off by ${fallingBlock.position.distance(point)}")
-                Logger.info("dist ${fallingBlock.position.distance(point)/distance}")
-                game.instance?.setBlock(point, fallingBlockMeta.block)
-                fallingBlock.remove()
-
-
-                return@submitTask TaskSchedule.stop()
-            }
-
-            fallingBlock.velocity = vec.mul(20.0 - (distance* PI))
-
-            vec = vec.mul(0.5)
-
-            i += 1
-
-            TaskSchedule.nextTick()
+        fallingBlock.setInstance(game.instance!!, actualLastPoint.add(0.5, 0.0, 0.5)).thenRun {
+            lastSandEntity = WeakReference(fallingBlock)
         }
 
         game.showParticle(
@@ -63,7 +57,22 @@ class PathAnimator : BlockAnimator() {
                 count = 1,
                 data = OffsetAndSpeed(0f, 0f, 0f, 0f),
                 extraData = Dust(1f, 0f, 1f, 1.25f)
-            ), Vectors(point.asVec().add(0.5, 0.5, 0.5), lastPoint.asVec().add(0.5, 0.5, 0.5), 0.35)
+            ), Vectors(point.asVec().add(0.5, 0.5, 0.5), actualLastPoint.asVec().add(0.5, 0.5, 0.5), 0.35)
         )
+
+        game.instance?.scheduler()?.buildTask {
+            game.instance?.setBlock(point, fallingBlockMeta.block)
+
+            lastSandEntity.get().let {
+                if (fallingBlock == it) {
+                    null
+                    lastSandEntity.clear()
+                } else {
+                    it
+                }
+            }
+
+            fallingBlock.remove()
+        }?.delay(TaskSchedule.millis((timeToAnimate * 1000L).toLong()))?.schedule()
     }
 }

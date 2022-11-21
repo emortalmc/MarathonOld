@@ -1,6 +1,5 @@
 package dev.emortal.marathon.game
-/*
-import dev.emortal.immortal.config.GameOptions
+
 import dev.emortal.immortal.game.Game
 import dev.emortal.immortal.util.MinestomRunnable
 import dev.emortal.marathon.animation.BlockAnimator
@@ -18,7 +17,9 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerMoveEvent
+import net.minestom.server.event.trait.InstanceEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.scoreboard.Sidebar
@@ -38,10 +39,19 @@ import world.cepi.particle.showParticle
 import java.text.SimpleDateFormat
 import java.time.Duration
 import java.util.*
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.pow
 
-class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
+class MarathonRacingGame : Game() {
+
+    override val maxPlayers: Int = 8
+    override val minPlayers: Int = 2
+    override val countdownSeconds: Int = 20
+    override val canJoinDuringGame: Boolean = false
+    override val showScoreboard: Boolean = true
+    override val showsJoinLeaveMessages: Boolean = true
+    override val allowsSpectators: Boolean = true
 
     companion object {
         val SPAWN_POINT = Pos(0.5, 150.0, 0.5)
@@ -49,7 +59,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     val generator: Generator = RacingGenerator
-    val animation: BlockAnimator = FallingSandAnimator(this)
+    val animation: BlockAnimator = FallingSandAnimator
 
     var targetY = 150
     var targetX = 0
@@ -92,7 +102,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
         scoreboard?.removeLine("${player.username}ScoreLine")
     }
 
-    override fun registerEvents() {
+    override fun registerEvents(eventNode: EventNode<InstanceEvent>) {
 
         eventNode.listenOnly<PlayerMoveEvent> {
             val racer = racerMap[player]
@@ -145,7 +155,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         endGameTask = Manager.scheduler.buildTask {
             if (firstPlace == null) {
-                destroy()
+                end()
                 return@buildTask
             }
 
@@ -166,7 +176,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
         }
     }
 
-    override fun gameDestroyed() {
+    override fun gameEnded() {
         timerTask?.cancel()
         endGameTask?.cancel()
         racerMap.clear()
@@ -174,12 +184,11 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     private fun reset(player: Player, inGame: Boolean) = runBlocking {
         val racer = racerMap[player] ?: return@runBlocking
-        val instance = instance.get()!!
 
         if (racer.score == 0) return@runBlocking
 
         racer.blocks.forEach {
-            instance.setBlock(it, Block.AIR)
+            instance!!.setBlock(it, Block.AIR)
         }
         racer.blocks.clear()
         racer.breakingTask?.cancel()
@@ -217,7 +226,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         player.velocity = Vec.ZERO
 
-        instance.setBlock(diamondBlockPos, Block.DIAMOND_BLOCK)
+        instance!!.setBlock(diamondBlockPos, Block.DIAMOND_BLOCK)
 
         generateNextBlock(player, length, false)
 
@@ -271,7 +280,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
         val racer = racerMap[player] ?: return
 
         if (racer.blocks.size > length) {
-            animation.destroyBlockAnimated(racer.blocks.removeAt(0), Block.ACACIA_WOOD)
+            animation.destroyBlockAnimated(this, racer.blocks.removeFirst(), Block.ACACIA_WOOD)
         }
 
         val finalBlockPos = racer.blocks.last()
@@ -284,7 +293,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
         val newPaletteBlock = blockPalette.blocks.random()
 
-        animation.setBlockAnimated(newPos, newPaletteBlock, finalBlockPos)
+        animation.setBlockAnimated(this, newPos, newPaletteBlock, finalBlockPos)
 
         showParticle(
             Particle.particle(
@@ -309,7 +318,7 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
 
     private fun createBreakingTask(racer: ParkourRacer) {
         racer.breakingTask?.cancel()
-        racer.breakingTask = object : MinestomRunnable(taskGroup = taskGroup, delay = Duration.ofSeconds(1), repeat = Duration.ofMillis(500)) {
+        racer.breakingTask = object : MinestomRunnable(group = runnableGroup, delay = Duration.ofSeconds(1), repeat = Duration.ofMillis(500)) {
             var currentBreakingProgress = 0
 
             override fun run() {
@@ -347,14 +356,14 @@ class MarathonRacingGame(gameOptions: GameOptions) : Game(gameOptions) {
         }
     }
 
-    override fun instanceCreate(): Instance {
+    override fun instanceCreate(): CompletableFuture<Instance> {
         val dimension = Manager.dimensionType.getDimension(NamespaceID.from("fullbright"))!!
         val newInstance = Manager.instance.createInstanceContainer(dimension)
         newInstance.time = 0
         newInstance.timeRate = 0
         newInstance.setBlock(0, 149, 0, Block.DIAMOND_BLOCK)
 
-        return newInstance
+        return CompletableFuture.completedFuture(newInstance)
     }
 
-}*/
+}

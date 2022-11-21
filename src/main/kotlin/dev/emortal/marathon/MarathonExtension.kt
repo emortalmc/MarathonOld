@@ -7,6 +7,7 @@ import dev.emortal.marathon.commands.Top10Command
 import dev.emortal.marathon.config.DatabaseConfig
 import dev.emortal.marathon.db.MongoStorage
 import dev.emortal.marathon.game.MarathonGame
+import dev.emortal.marathon.game.MarathonRacingGame
 import dev.emortal.nbstom.NBS
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -41,11 +42,11 @@ class MarathonExtension : Extension() {
             showsInSlashPlay = true
         )
 
-        /*GameManager.registerGame<MarathonRacingGame>(
+        GameManager.registerGame<MarathonRacingGame>(
             "marathonracing",
             Component.text("Marathon Racing", NamedTextColor.RED, TextDecoration.BOLD),
             showsInSlashPlay = true
-        )*/
+        )
 
         SetScoreCommand.register()
         Top10Command.register()

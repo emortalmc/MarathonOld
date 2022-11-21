@@ -16,7 +16,11 @@ class ParkourRacer(val player: Player, val spawnPos: Pos) {
         }
     var highscore = 0
     var combo = 0
-    val blocks = mutableListOf<Point>(spawnPos.sub(0.0, 1.0, 0.0))
+    val blocks = ArrayDeque<Point>(8)
+
+    init {
+        blocks.add(spawnPos.sub(0.0, 1.0, 0.0))
+    }
 
     var breakingTask: MinestomRunnable? = null
 

@@ -16,6 +16,7 @@ import dev.emortal.marathon.utils.updateOrCreateLine
 import dev.emortal.nbstom.MusicPlayerInventory
 import dev.emortal.immortal.util.cancel
 import dev.emortal.marathon.animation.FallingSandAnimator
+import dev.emortal.marathon.animation.PathAnimator
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -92,7 +93,7 @@ class MarathonGame : Game() {
     override val allowsSpectators: Boolean = true
 
     val generator: Generator = LegacyGenerator
-    val animation: BlockAnimator = FallingSandAnimator
+    val animation: BlockAnimator = PathAnimator()
 
     // Amount of blocks in front of the player
     var length = 6
@@ -145,7 +146,8 @@ class MarathonGame : Game() {
 
     val spectatorBoatMap = ConcurrentHashMap<UUID, Entity>()
 
-    override fun getSpawnPosition(player: Player, spectator: Boolean): Pos = SPAWN_POINT
+    override fun getSpawnPosition(player: Player, spectator: Boolean): Pos =
+        if (spectator) players.first { !it.hasTag(GameManager.spectatingTag) }.position else SPAWN_POINT
 
     override fun playerJoin(player: Player) = runBlocking {
 
@@ -404,6 +406,13 @@ class MarathonGame : Game() {
             player.removeTag(teleportingTag)
 
             generateNextBlock(length, false)
+
+            val radius = 8
+            for (x in -radius..radius) {
+                for (z in -radius..radius) {
+                    instance?.loadChunk(x, z)?.thenAccept { it.sendChunk() }
+                }
+            }
         }
 
         updateActionBar()
