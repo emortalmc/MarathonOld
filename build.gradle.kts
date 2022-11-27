@@ -22,7 +22,7 @@ dependencies {
 //    compileOnly("com.github.EmortalMC:TNT:f0680e2013")
 
 
-    compileOnly("org.litote.kmongo:kmongo-coroutine-serialization:4.7.2")
+    compileOnly("org.litote.kmongo:kmongo-coroutine-serialization:4.8.0")
 
     //implementation("com.github.KrystilizeNevaDies:Scaffolding:2303491258")
     compileOnly("com.github.EmortalMC:Acquaintance:95a47b101c")
