@@ -3,7 +3,7 @@ package dev.emortal.marathon.game
 import dev.emortal.immortal.game.Game
 import dev.emortal.immortal.game.GameManager
 import dev.emortal.immortal.util.armify
-import dev.emortal.marathon.MarathonExtension
+import dev.emortal.marathon.MarathonMain
 import dev.emortal.marathon.animation.BlockAnimator
 import dev.emortal.marathon.db.Highscore
 import dev.emortal.marathon.db.MongoStorage
@@ -13,9 +13,7 @@ import dev.emortal.marathon.generator.LegacyGenerator
 import dev.emortal.marathon.utils.TimeFrame
 import dev.emortal.marathon.utils.sendBlockDamage
 import dev.emortal.marathon.utils.updateOrCreateLine
-import dev.emortal.nbstom.MusicPlayerInventory
 import dev.emortal.immortal.util.cancel
-import dev.emortal.marathon.animation.FallingSandAnimator
 import dev.emortal.marathon.animation.PathAnimator
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
@@ -23,7 +21,6 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.title.Title
-import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -40,8 +37,6 @@ import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.event.trait.InstanceEvent
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
-import net.minestom.server.item.Enchantment
-import net.minestom.server.item.ItemHideFlag
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.scoreboard.Sidebar
@@ -49,7 +44,6 @@ import net.minestom.server.sound.SoundEvent
 import net.minestom.server.tag.Tag
 import net.minestom.server.timer.Task
 import net.minestom.server.utils.NamespaceID
-import net.minestom.server.utils.chunk.ChunkUtils
 import net.minestom.server.utils.time.TimeUnit
 import org.tinylog.kotlin.Logger
 import world.cepi.kstom.Manager
@@ -77,6 +71,7 @@ class MarathonGame : Game() {
     companion object {
         val SPAWN_POINT = Pos(0.5, 150.0, 0.5)
         val dateFormat = SimpleDateFormat("mm:ss")
+        val accurateDateFormat = SimpleDateFormat("mm:ss.SSS")
 
         val paletteTag = Tag.Integer("palette")
         val teleportingTag = Tag.Boolean("teleporting")
@@ -88,7 +83,7 @@ class MarathonGame : Game() {
     override val minPlayers: Int = 1
     override val countdownSeconds: Int = 0
     override val canJoinDuringGame: Boolean = false
-    override val showScoreboard: Boolean = true
+    override val showScoreboard: Boolean = MarathonMain.mongoStorage != null
     override val showsJoinLeaveMessages: Boolean = false
     override val allowsSpectators: Boolean = true
 
@@ -147,78 +142,81 @@ class MarathonGame : Game() {
     val spectatorBoatMap = ConcurrentHashMap<UUID, Entity>()
 
     override fun getSpawnPosition(player: Player, spectator: Boolean): Pos =
-        if (spectator) players.first { !it.hasTag(GameManager.spectatingTag) }.position else SPAWN_POINT
+        if (spectator) players.first().position else SPAWN_POINT
 
     override fun playerJoin(player: Player) = runBlocking {
 
-        highscore = MarathonExtension.mongoStorage?.getHighscore(player.uuid, MongoStorage.leaderboard)
-        weeklyHighscore = MarathonExtension.mongoStorage?.getHighscore(player.uuid, MongoStorage.weekly)
-        monthlyHighscore = MarathonExtension.mongoStorage?.getHighscore(player.uuid, MongoStorage.monthly)
-
-        val highscorePoints = highscore?.score ?: 0
-        val placement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.leaderboard) ?: 0
-        weeklyPlacement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.weekly)
-        monthlyPlacement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.monthly)
-
-//        playerSettings = MarathonExtension.mongoStorage?.getSettings(player.uuid)
         playerSettings = PlayerSettings(player.uuid.toString())
 
-        scoreboard?.createLine(
-            Sidebar.ScoreboardLine(
-                "highscoreLine",
-                Component.text()
-                    .append(Component.text("Highscore: ", NamedTextColor.GRAY))
-                    .append(Component.text(highscorePoints, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
-                    .build(),
-                1
-            )
-        )
-        scoreboard?.createLine(
-            Sidebar.ScoreboardLine(
-                "placementLine",
-                Component.text()
-                    .append(Component.text("#${placement}", NamedTextColor.LIGHT_PURPLE))
-                    .append(Component.text(" on leaderboard", NamedTextColor.GRAY))
-                    .build(),
-                0
-            )
-        )
+        if (MarathonMain.mongoStorage != null) {
+            highscore = MarathonMain.mongoStorage?.getHighscore(player.uuid, MongoStorage.leaderboard)
+            weeklyHighscore = MarathonMain.mongoStorage?.getHighscore(player.uuid, MongoStorage.weekly)
+            monthlyHighscore = MarathonMain.mongoStorage?.getHighscore(player.uuid, MongoStorage.monthly)
 
-        var needsSpacer = false
-        if (weeklyPlacement != null && weeklyPlacement!! <= 10 && weeklyHighscore != null) {
-            needsSpacer = true
+            val highscorePoints = highscore?.score ?: 0
+            val placement = MarathonMain.mongoStorage?.getPlacement(player.uuid, MongoStorage.leaderboard) ?: 0
+            weeklyPlacement = MarathonMain.mongoStorage?.getPlacement(player.uuid, MongoStorage.weekly)
+            monthlyPlacement = MarathonMain.mongoStorage?.getPlacement(player.uuid, MongoStorage.monthly)
+
+//        playerSettings = MarathonExtension.mongoStorage?.getSettings(player.uuid)
+
             scoreboard?.createLine(
                 Sidebar.ScoreboardLine(
-                    "weeklyPlacementLine",
+                    "highscoreLine",
                     Component.text()
-                        .append(Component.text("#${weeklyPlacement}", NamedTextColor.GOLD))
-                        .append(Component.text(" on weekly", NamedTextColor.GRAY))
+                        .append(Component.text("Highscore: ", NamedTextColor.GRAY))
+                        .append(Component.text(highscorePoints, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
                         .build(),
-                    4
+                    1
+                )
+            )
+            scoreboard?.createLine(
+                Sidebar.ScoreboardLine(
+                    "placementLine",
+                    Component.text()
+                        .append(Component.text("#${placement}", NamedTextColor.LIGHT_PURPLE))
+                        .append(Component.text(" on leaderboard", NamedTextColor.GRAY))
+                        .build(),
+                    0
+                )
+            )
+
+            var needsSpacer = false
+            if (weeklyPlacement != null && weeklyPlacement!! <= 10 && weeklyHighscore != null) {
+                needsSpacer = true
+                scoreboard?.createLine(
+                    Sidebar.ScoreboardLine(
+                        "weeklyPlacementLine",
+                        Component.text()
+                            .append(Component.text("#${weeklyPlacement}", NamedTextColor.GOLD))
+                            .append(Component.text(" on weekly", NamedTextColor.GRAY))
+                            .build(),
+                        4
+                    )
+                )
+            }
+            if (monthlyPlacement != null && monthlyPlacement!! <= 10 && monthlyHighscore != null) {
+                needsSpacer = true
+                scoreboard?.createLine(
+                    Sidebar.ScoreboardLine(
+                        "monthlyPlacementLine",
+                        Component.text()
+                            .append(Component.text("#${monthlyPlacement}", NamedTextColor.GOLD))
+                            .append(Component.text(" on monthly", NamedTextColor.GRAY))
+                            .build(),
+                        5
+                    )
+                )
+            }
+
+            if (needsSpacer) scoreboard?.createLine(
+                Sidebar.ScoreboardLine(
+                    "placementSpacer",
+                    Component.empty(),
+                    2
                 )
             )
         }
-        if (monthlyPlacement != null && monthlyPlacement!! <= 10 && monthlyHighscore != null) {
-            needsSpacer = true
-            scoreboard?.createLine(
-                Sidebar.ScoreboardLine(
-                    "monthlyPlacementLine",
-                    Component.text()
-                        .append(Component.text("#${monthlyPlacement}", NamedTextColor.GOLD))
-                        .append(Component.text(" on monthly", NamedTextColor.GRAY))
-                        .build(),
-                    5
-                )
-            )
-        }
-
-        if (needsSpacer) scoreboard?.createLine(
-            Sidebar.ScoreboardLine(
-                "placementSpacer",
-                Component.empty(),
-                2
-            )
-        )
 
         player.setHeldItemSlot(1)
 
@@ -238,21 +236,16 @@ class MarathonGame : Game() {
         }
 
         player.inventory.setItemStack(
-            8,
-            ItemStack.builder(Material.MUSIC_DISC_BLOCKS)
-                .displayName(Component.text("Music", NamedTextColor.GOLD).noItalic())
-                .meta { meta ->
-                    meta.enchantment(Enchantment.INFINITY, 1)
-                    meta.hideFlag(ItemHideFlag.HIDE_ENCHANTS)
-
-                }
+            0,
+            ItemStack.builder(Material.CLOCK)
+                .displayName(Component.text("Theme Toggle", NamedTextColor.GOLD).noItalic())
                 .build()
         )
 
         player.inventory.setItemStack(
-            0,
-            ItemStack.builder(Material.CLOCK)
-                .displayName(Component.text("Theme Toggle", NamedTextColor.GOLD).noItalic())
+            8,
+            ItemStack.builder(Material.LEATHER_BOOTS)
+                .displayName(Component.text("Speedrun Toggle", NamedTextColor.GOLD).noItalic())
                 .build()
         )
     }
@@ -268,33 +261,44 @@ class MarathonGame : Game() {
         cancel<PlayerSwapItemEvent>()
 
         listenOnly<PlayerUseItemEvent> {
-            if (this.itemStack.material() == Material.MUSIC_DISC_BLOCKS) {
-                this.isCancelled = true
-                player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
-                player.openInventory(MusicPlayerInventory.inventory)
-            }
+            isCancelled = true
 
-            if (this.itemStack.material() == Material.CLOCK) {
-                this.isCancelled = true
-                player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
+            when (itemStack.material()) {
+                Material.CLOCK -> {
+                    player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
 
-                playerSettings = when (playerSettings?.theme) {
-                    "light" -> {
-                        player.sendMessage(Component.text("Set theme is now dark", NamedTextColor.GOLD))
-                        instance.time = 18000
-                        playerSettings?.copy(theme = "dark")
-                    }
-                    else -> {
-                        player.sendMessage(Component.text("Set theme is now light", NamedTextColor.GOLD))
-                        instance.time = 0
-                        playerSettings?.copy(theme = "light")
+                    playerSettings = when (playerSettings?.theme) {
+                        "light" -> {
+                            player.sendMessage(Component.text("Set theme is now dark", NamedTextColor.GOLD))
+                            instance.time = 18000
+                            playerSettings?.copy(theme = "dark")
+                        }
+                        else -> {
+                            player.sendMessage(Component.text("Set theme is now light", NamedTextColor.GOLD))
+                            instance.time = 0
+                            playerSettings?.copy(theme = "light")
+                        }
                     }
                 }
+
+                Material.LEATHER_BOOTS -> {
+                    playerSettings = if (playerSettings?.speedrunMode == true) {
+                        player.sendMessage(Component.text("Disabled speedrun mode", NamedTextColor.GOLD))
+                        target = -1
+                        playerSettings?.copy(speedrunMode = false)
+                    } else {
+                        player.sendMessage(Component.text("Enabled speedrun mode - Your target is 100", NamedTextColor.GOLD))
+                        target = 100
+                        playerSettings?.copy(speedrunMode = true)
+                    }
+                }
+
+                else -> {}
             }
         }
 
         listenOnly<PlayerMoveEvent> {
-            if (player.hasTag(GameManager.spectatingTag)) return@listenOnly
+            if (player.hasTag(GameManager.playerSpectatingTag)) return@listenOnly
             refreshSpectatorPosition(newPosition.add(0.0, 1.0, 0.0))
 
             synchronized(blocks) {
@@ -393,7 +397,7 @@ class MarathonGame : Game() {
 
         passedHighscore = false
 
-        instance!!.players.filter { it.hasTag(GameManager.spectatingTag) }.forEach {
+        spectators.forEach {
             it.stopSpectating()
             it.teleport(SPAWN_POINT).thenRun {
                 respawnBoat(it, SPAWN_POINT.add(0.0, 1.0, 0.0))
@@ -451,19 +455,38 @@ class MarathonGame : Game() {
 
             score += times
 
-            val highscorePoints = highscore?.score ?: 0
-            if (!passedHighscore && score > highscorePoints) {
+            if (target != -1 && score >= target) {
+                val millisTaken = System.currentTimeMillis() - startTimestamp
+                val timeFormatted = accurateDateFormat.format(Date(millisTaken))
+
+                reset(players.first())
+
                 sendMessage(
                     Component.text()
-                        .append(Component.text("\nYou beat your previous highscore of ", NamedTextColor.GRAY))
-                        .append(Component.text(highscorePoints, NamedTextColor.GREEN))
-                        .append(Component.text("\nSee how much further you can go!", NamedTextColor.GOLD))
-                        .append(Component.text("\n"))
-                        .armify()
+                        .append(Component.text("You reached your target of ", NamedTextColor.GRAY))
+                        .append(Component.text(target, NamedTextColor.GOLD))
+                        .append(Component.text(" in ", NamedTextColor.GRAY))
+                        .append(Component.text(timeFormatted, NamedTextColor.GOLD))
                 )
-                playSound(Sound.sound(SoundEvent.ENTITY_VILLAGER_CELEBRATE, Sound.Source.MASTER, 1f, 1f))
 
-                passedHighscore = true
+                return
+            }
+
+            if (MarathonMain.mongoStorage != null) {
+                val highscorePoints = highscore?.score ?: 0
+                if (!passedHighscore && score > highscorePoints) {
+                    sendMessage(
+                        Component.text()
+                            .append(Component.text("\nYou beat your previous highscore of ", NamedTextColor.GRAY))
+                            .append(Component.text(highscorePoints, NamedTextColor.GREEN))
+                            .append(Component.text("\nSee how much further you can go!", NamedTextColor.GOLD))
+                            .append(Component.text("\n"))
+                            .armify()
+                    )
+                    playSound(Sound.sound(SoundEvent.ENTITY_VILLAGER_CELEBRATE, Sound.Source.MASTER, 1f, 1f))
+
+                    passedHighscore = true
+                }
             }
 
             showTitle(
@@ -509,7 +532,7 @@ class MarathonGame : Game() {
             spectatorBoatMap.values.filter { it.isActive }.forEach {
                 it.teleport(newPos)
             }
-            instance!!.players.filter { it.hasTag(GameManager.spectatingTag) }.forEach {
+            spectators.forEach {
                 it.teleport(newPos)
             }
         }
@@ -665,6 +688,9 @@ class MarathonGame : Game() {
     }
 
     suspend fun checkHighscores(player: Player, score: Int) {
+        if (MarathonMain.mongoStorage == null) {
+            return
+        }
 
         val highscoreScore = highscore?.score ?: 0
 
@@ -673,7 +699,9 @@ class MarathonGame : Game() {
 
         // Check lifetime
         if (score > highscoreScore) {
-            val placement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, MongoStorage.leaderboard) ?: 0
+            highscore = newHighscoreObject
+            MarathonMain.mongoStorage?.setHighscore(newHighscoreObject, MongoStorage.leaderboard)
+            val placement = MarathonMain.mongoStorage?.getPlacement(player.uuid, MongoStorage.leaderboard) ?: 0
 
             playSound(
                 Sound.sound(SoundEvent.ENTITY_PLAYER_LEVELUP, Sound.Source.MASTER, 1f, 0.7f),
@@ -717,9 +745,6 @@ class MarathonGame : Game() {
                     .append(Component.text(" on leaderboard", NamedTextColor.GRAY))
                     .build()
             )
-
-            highscore = newHighscoreObject
-            MarathonExtension.mongoStorage?.setHighscore(newHighscoreObject, MongoStorage.leaderboard)
         }
 
         val weeklyScore = weeklyHighscore?.score ?: 0
@@ -736,9 +761,9 @@ class MarathonGame : Game() {
             }
 
             if (score > timeFrameScore) {
-                MarathonExtension.mongoStorage?.setHighscore(newHighscoreObject, it.collection)
+                MarathonMain.mongoStorage?.setHighscore(newHighscoreObject, it.collection)
 
-                val placement = MarathonExtension.mongoStorage?.getPlacement(player.uuid, it.collection) ?: 11
+                val placement = MarathonMain.mongoStorage?.getPlacement(player.uuid, it.collection) ?: 11
 
                 val previousPlacement = when (it) {
                     TimeFrame.WEEKLY -> weeklyPlacement

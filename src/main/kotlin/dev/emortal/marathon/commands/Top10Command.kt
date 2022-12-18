@@ -4,51 +4,63 @@ import dev.emortal.acquaintance.RelationshipManager.getCachedUsername
 import dev.emortal.immortal.util.armify
 import dev.emortal.immortal.util.centerText
 import dev.emortal.immortal.util.parsed
-import dev.emortal.marathon.MarathonExtension
-import dev.emortal.marathon.commands.Top10Command.runCommand
+import dev.emortal.marathon.MarathonMain
 import dev.emortal.marathon.utils.TimeFrame
 import dev.emortal.marathon.utils.enumValueOrNull
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.Style
 import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.command.CommandSender
+import net.minestom.server.command.builder.Command
 import net.minestom.server.command.builder.arguments.ArgumentString
+import net.minestom.server.command.builder.suggestion.SuggestionEntry
 import net.minestom.server.entity.Player
-import world.cepi.kstom.command.arguments.suggest
-import world.cepi.kstom.command.kommand.Kommand
 import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
-import java.util.*
 
-object Top10Command : Kommand({
+object Top10Command : Command("leaderboard", "top10", "lb") {
 
-    val timeFrameArgument = ArgumentString("timeFrame")
-        .suggest { TimeFrame.values().map { it.name.lowercase() } }
-        .map { enumValueOrNull<TimeFrame>(it.uppercase()) }
+    init {
+        val timeFrameArgument = ArgumentString("timeFrame")
+            .setSuggestionCallback { sender, context, suggestion ->
+                TimeFrame.values().forEach { suggestion.addEntry(SuggestionEntry(it.name.lowercase())) }
+            }
+            .map { enumValueOrNull<TimeFrame>(it.uppercase()) }
 
-    defaultSuspending {
-        runCommand(sender)
-    }
+        addSyntax({ sender, context -> runBlocking {
+            val timeFrame = context.get(timeFrameArgument)
+            if (timeFrame == null) {
+                sender.sendMessage(Component.text("Invalid time frame", NamedTextColor.RED))
+                return@runBlocking
+            }
 
-    syntaxSuspending(Dispatchers.IO, timeFrameArgument) {
-        val timeFrame = !timeFrameArgument
-        if (timeFrame == null) {
-            sender.sendMessage(Component.text("Invalid time frame", NamedTextColor.RED))
-            return@syntaxSuspending
+            launch {
+                runCommand(sender, timeFrame)
+            }
+        }}, timeFrameArgument)
+
+        setDefaultExecutor { sender, context ->
+            runBlocking {
+                launch {
+                    runCommand(sender)
+                }
+            }
         }
-        runCommand(sender, timeFrame)
     }
-
-}, "top10", "leaderboard", "lb") {
 
     suspend fun runCommand(sender: CommandSender, timeFrame: TimeFrame = TimeFrame.MONTHLY) {
-        val highscores = MarathonExtension.mongoStorage?.getTopHighscores(10, timeFrame.collection) ?: return
+        val highscores = MarathonMain.mongoStorage?.getTopHighscores(10, timeFrame.collection)
+        if (highscores == null) {
+            sender.sendMessage("Leaderboards are disabled in marathon.json")
+            return
+        }
 
         val message = Component.text()
             .append(Component.text(centerText("${timeFrame.lyName.replaceFirstChar(Char::uppercase)} Marathon Leaderboard", bold = true), NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
@@ -63,10 +75,7 @@ object Top10Command : Kommand({
 
         var i = 1
         highscores.forEach {
-            val playerUsername = it.uuid.getCachedUsername().also { name ->
-                // temporary fix for weird redisson issue
-                if (name?.contains(">") == true) name.takeLast(name.length - 3)
-            } ?: "???"
+            val playerUsername = it.uuid.getCachedUsername() ?: "???"
 
             //val formattedTime: String = MarathonGame.dateFormat.format(Date(it.value.time))
 
@@ -114,10 +123,10 @@ object Top10Command : Kommand({
         if (sender is Player) run {
 
             if (!highscores.any { it.uuid == sender.uuid.toString() }) {
-                val highscore = MarathonExtension.mongoStorage?.getHighscore(sender.uuid, timeFrame.collection)
+                val highscore = MarathonMain.mongoStorage?.getHighscore(sender.uuid, timeFrame.collection)
                 val highscorePoints = highscore?.score ?: return@run
                 val timeTaken = highscore.timeTaken
-                val placement = MarathonExtension.mongoStorage?.getPlacementByScore(highscorePoints, timeFrame.collection) ?: 0
+                val placement = MarathonMain.mongoStorage?.getPlacementByScore(highscorePoints, timeFrame.collection) ?: 0
 
                 val bps = (highscorePoints.toDouble() / highscore.timeTaken) * 1000
 
@@ -136,10 +145,9 @@ object Top10Command : Kommand({
         }
 
         val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-        val nextWeek = LocalDateTime.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(
-            ZoneOffset.UTC)
-        val nextMonth = LocalDateTime.now().with(TemporalAdjusters.firstDayOfNextMonth()).truncatedTo(ChronoUnit.DAYS).toEpochSecond(
-            ZoneOffset.UTC)
+        val nextWeek = LocalDateTime.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
+        val nextMonth = LocalDateTime.now().with(TemporalAdjusters.firstDayOfNextMonth()).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
+
 
         val resetSeconds = when (timeFrame) {
             TimeFrame.WEEKLY -> nextWeek - now
@@ -153,5 +161,6 @@ object Top10Command : Kommand({
 
         sender.sendMessage(message.armify())
     }
+
 
 }

@@ -1,14 +1,12 @@
 package dev.emortal.marathon.db
 
 import com.mongodb.client.model.ReplaceOptions
-import dev.emortal.immortal.util.CoroutineRunnable
 import dev.emortal.immortal.util.MinestomRunnable
-import dev.emortal.marathon.MarathonExtension
+import dev.emortal.marathon.MarathonMain
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.count
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import org.litote.kmongo.coroutine.CoroutineClient
 import org.litote.kmongo.coroutine.CoroutineCollection
 import org.litote.kmongo.coroutine.CoroutineDatabase
@@ -45,7 +43,7 @@ class MongoStorage {
     val mongoScope = CoroutineScope(Dispatchers.IO)
 
     fun init() {
-        client = KMongo.createClient(MarathonExtension.databaseConfig.connectionString).coroutine
+        client = KMongo.createClient(MarathonMain.databaseConfig.connectionString).coroutine
         database = client!!.getDatabase("Marathon")
 
         leaderboard = database!!.getCollection("leaderboard")
@@ -129,11 +127,9 @@ class MongoStorage {
 
     }
 
-    fun setHighscore(highscore: Highscore, collection: CoroutineCollection<Highscore>?) {
-        mongoScope.launch {
-            collection?.replaceOne(Highscore::uuid eq highscore.uuid, highscore, ReplaceOptions().upsert(true))
-        }
-    }
+    suspend fun setHighscore(highscore: Highscore, collection: CoroutineCollection<Highscore>?) =
+        collection?.replaceOne(Highscore::uuid eq highscore.uuid, highscore, ReplaceOptions().upsert(true))
+
 
     suspend fun getHighscore(uuid: UUID, collection: CoroutineCollection<Highscore>?): Highscore? =
         collection?.findOne(Highscore::uuid eq uuid.toString())
@@ -151,9 +147,8 @@ class MongoStorage {
         (collection?.find(Highscore::score gt score)?.toFlow()?.count() ?: 0) + 1
 
     suspend fun getPlacement(uuid: UUID, collection: CoroutineCollection<Highscore>?): Int? {
-        // Count scores that are greater than (gt) score
         val highscore = getHighscore(uuid, collection) ?: return null
-        return (collection?.find(Highscore::score gt highscore.score)?.toFlow()?.count() ?: 0) + 1
+        return getPlacementByScore(highscore.score, collection)
     }
 
 //    suspend fun getSettings(uuid: UUID): PlayerSettings =

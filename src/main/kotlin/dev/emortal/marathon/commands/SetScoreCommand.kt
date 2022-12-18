@@ -1,12 +1,12 @@
 package dev.emortal.marathon.commands
 
 import dev.emortal.immortal.luckperms.PermissionUtils.hasLuckPermission
-import dev.emortal.marathon.MarathonExtension
+import dev.emortal.marathon.MarathonMain
 import dev.emortal.marathon.db.Highscore
 import dev.emortal.marathon.db.MongoStorage
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import dev.emortal.marathon.utils.TimeFrame
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.command.builder.arguments.ArgumentWord
@@ -28,23 +28,33 @@ object SetScoreCommand : Kommand({
             return@syntax
         }
 
-        if (MarathonExtension.mongoStorage == null) {
+        if (MarathonMain.mongoStorage == null) {
             sender.sendMessage("Mongo storage is disabled")
             return@syntax
         }
 
         val username = !playerArgument
 
-        CoroutineScope(Dispatchers.IO).launch {
-            val previousHighscore = MarathonExtension.mongoStorage!!.getHighscore(UUID.fromString(username), MongoStorage.leaderboard)
+        runBlocking {
+            launch {
+                TimeFrame.values().forEach {
+                    val collection = when (it) {
+                        TimeFrame.LIFETIME -> MongoStorage.leaderboard
+                        TimeFrame.MONTHLY -> MongoStorage.monthly
+                        TimeFrame.WEEKLY -> MongoStorage.weekly
+                    }
 
-            MarathonExtension.mongoStorage!!.setHighscore(
-                Highscore(username, !score, (((!mins * 60) + !secs) * 1000).toLong(), previousHighscore?.timeSubmitted ?: 0),
-                MongoStorage.leaderboard
-            )
+                    val previousHighscore = MarathonMain.mongoStorage!!.getHighscore(UUID.fromString(username), collection)
+
+                    MarathonMain.mongoStorage!!.setHighscore(
+                        Highscore(username, !score, (((!mins * 60) + !secs) * 1000).toLong(), previousHighscore?.timeSubmitted ?: 0),
+                        collection
+                    )
+                }
+            }
         }
 
-        sender.sendMessage("Lol we set their score to ${!score} hahaha")
+        sender.sendMessage("Lol we set ${username}'s score to ${!score} hahaha")
     }
 
 }, "setscore")

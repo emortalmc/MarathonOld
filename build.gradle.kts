@@ -15,35 +15,33 @@ repositories {
 }
 
 dependencies {
-    compileOnly("com.github.Minestom:Minestom:1a013728fd")
-//    compileOnly("com.github.EmortalMC:Immortal:5b2b3a057a")
-    compileOnly("dev.emortal.immortal:Immortal:3.0.1")
-    compileOnly("com.github.EmortalMC:NBStom:303d0ba5ba")
-//    compileOnly("com.github.EmortalMC:TNT:f0680e2013")
+    implementation("com.github.Minestom:Minestom:d7feed23c8")
+    implementation("dev.emortal.immortal:Immortal:3.0.1")
 
-
-    compileOnly("org.litote.kmongo:kmongo-coroutine-serialization:4.7.2")
-
-    //implementation("com.github.KrystilizeNevaDies:Scaffolding:2303491258")
-    compileOnly("com.github.EmortalMC:Acquaintance:95a47b101c")
-
-    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+
+    implementation("com.github.EmortalMC:Acquaintance:95a47b101c")
 }
 
 tasks {
-    processResources {
-        filesMatching("extension.json") {
-            expand(project.properties)
-        }
-    }
-
     named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
         archiveBaseName.set(project.name)
         mergeServiceFiles()
-        minimize {
-            //exclude(dependency("mysql:mysql-connector-java:8.0.29"))
+
+        manifest {
+            attributes (
+                "Main-Class" to "dev.emortal.marathon.MarathonMainKt",
+                "Multi-Release" to true
+            )
         }
+
+        transform(com.github.jengelman.gradle.plugins.shadow.transformers.Log4j2PluginsCacheFileTransformer::class.java)
+    }
+
+    withType<AbstractArchiveTask> {
+        isPreserveFileTimestamps = false
+        isReproducibleFileOrder = true
     }
 
     build { dependsOn(shadowJar) }
