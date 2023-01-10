@@ -14,11 +14,8 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.MinecraftServer
-import net.minestom.server.extensions.Extension
 import org.litote.kmongo.serialization.SerializationClassMappingTypeService
 import org.tinylog.kotlin.Logger
-import world.cepi.kstom.command.register
-import world.cepi.kstom.command.unregister
 import java.nio.file.Path
 
 
@@ -36,8 +33,9 @@ fun main() {
         MarathonMain.mongoStorage = MongoStorage()
         MarathonMain.mongoStorage!!.init()
 
-        SetScoreCommand.register()
-        Top10Command.register()
+        val cm = MinecraftServer.getCommandManager();
+        cm.register(SetScoreCommand)
+        cm.register(Top10Command)
     }
 
     GameManager.registerGame<MarathonGame>(

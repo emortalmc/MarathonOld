@@ -1,7 +1,6 @@
 package dev.emortal.marathon.animation
 
 import dev.emortal.immortal.game.Game
-import dev.emortal.immortal.util.MinestomRunnable
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
@@ -9,10 +8,6 @@ import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.metadata.other.FallingBlockMeta
 import net.minestom.server.instance.block.Block
 import net.minestom.server.timer.TaskSchedule
-import world.cepi.kstom.Manager
-import java.nio.file.Path
-import java.nio.file.Paths
-import java.time.Duration
 
 object FallingSandAnimator : BlockAnimator() {
 

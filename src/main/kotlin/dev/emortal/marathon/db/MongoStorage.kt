@@ -1,12 +1,14 @@
 package dev.emortal.marathon.db
 
 import com.mongodb.client.model.ReplaceOptions
-import dev.emortal.immortal.util.MinestomRunnable
 import dev.emortal.marathon.MarathonMain
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.count
 import kotlinx.coroutines.launch
+import net.minestom.server.MinecraftServer
+import net.minestom.server.entity.metadata.minecart.MinecartMeta
+import net.minestom.server.timer.TaskSchedule
 import org.litote.kmongo.coroutine.CoroutineClient
 import org.litote.kmongo.coroutine.CoroutineCollection
 import org.litote.kmongo.coroutine.CoroutineDatabase
@@ -22,6 +24,8 @@ import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import java.util.*
+import java.util.function.Supplier
+import kotlin.reflect.jvm.internal.impl.descriptors.SupertypeLoopChecker
 
 class MongoStorage {
 
@@ -79,6 +83,7 @@ class MongoStorage {
                     monthly?.drop() // Clear monthly
                     val newResetTimes = resetTimes.copy(monthlyResetTimestamp = nextMonth)
                     resetCollection?.replaceOne("{}", newResetTimes)
+                    resetTimes = newResetTimes
                 }
             }
 
@@ -90,39 +95,59 @@ class MongoStorage {
 
             var resetTimes = resetCollection?.findOne()!!
 
-            object : MinestomRunnable(group = null, delay = durationUntilNextWeek, repeat = durationUntilNextWeek) {
-                override fun run() {
-                    mongoScope.launch {
-                        val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                        val nextWeek = LocalDateTime.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
+            val scheduler = MinecraftServer.getSchedulerManager()
 
+
+            scheduler.submitTask(object : Supplier<TaskSchedule> {
+                var first = true;
+
+                override fun get(): TaskSchedule {
+                    if (first) {
+                        first = false
+                        return TaskSchedule.duration(durationUntilNextWeek)
+                    }
+
+                    val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                    val nextWeek = LocalDateTime.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
+
+                    mongoScope.launch {
                         Logger.info("Cleared weekly leaderboard!")
                         weekly?.drop()
                         val newResetTimes = resetTimes.copy(weeklyResetTimestamp = nextWeek)
                         resetCollection?.replaceOne("{}", resetTimes.copy(weeklyResetTimestamp = nextWeek))
 
-                        repeat = Duration.ofSeconds(nextWeek - now)
                         resetTimes = newResetTimes
                     }
+
+                    return TaskSchedule.seconds(nextWeek - now)
                 }
-            }
+            })
 
-            object : MinestomRunnable(group = null, delay = durationUntilNextMonth, repeat = durationUntilNextMonth) {
-                override fun run() {
+
+            scheduler.submitTask(object : Supplier<TaskSchedule> {
+                var first = true
+
+                override fun get(): TaskSchedule {
+                    if (first) {
+                        first = false
+                        return TaskSchedule.duration(durationUntilNextMonth)
+                    }
+
+                    val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                    val nextMonth = LocalDateTime.now().with(TemporalAdjusters.firstDayOfNextMonth()).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
+
                     mongoScope.launch {
-                        val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                        val nextMonth = LocalDateTime.now().with(TemporalAdjusters.firstDayOfNextMonth()).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
-
                         Logger.info("Cleared monthly leaderboard!")
                         monthly?.drop()
                         val newResetTimes = resetTimes.copy(monthlyResetTimestamp = nextMonth)
                         resetCollection?.replaceOne("{}", resetTimes.copy(monthlyResetTimestamp = nextMonth))
 
-                        repeat = Duration.ofSeconds(nextMonth - now)
                         resetTimes = newResetTimes
                     }
+
+                    return TaskSchedule.seconds(nextMonth - now)
                 }
-            }
+            })
         }
 
     }

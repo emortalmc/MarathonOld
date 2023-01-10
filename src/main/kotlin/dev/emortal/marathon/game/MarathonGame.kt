@@ -2,7 +2,7 @@ package dev.emortal.marathon.game
 
 import dev.emortal.immortal.game.Game
 import dev.emortal.immortal.game.GameManager
-import dev.emortal.immortal.util.armify
+import dev.emortal.immortal.util.*
 import dev.emortal.marathon.MarathonMain
 import dev.emortal.marathon.animation.BlockAnimator
 import dev.emortal.marathon.db.Highscore
@@ -13,7 +13,6 @@ import dev.emortal.marathon.generator.LegacyGenerator
 import dev.emortal.marathon.utils.TimeFrame
 import dev.emortal.marathon.utils.sendBlockDamage
 import dev.emortal.marathon.utils.updateOrCreateLine
-import dev.emortal.immortal.util.cancel
 import dev.emortal.marathon.animation.PathAnimator
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
@@ -21,6 +20,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.title.Title
+import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -46,10 +46,6 @@ import net.minestom.server.timer.Task
 import net.minestom.server.utils.NamespaceID
 import net.minestom.server.utils.time.TimeUnit
 import org.tinylog.kotlin.Logger
-import world.cepi.kstom.Manager
-import world.cepi.kstom.adventure.noItalic
-import world.cepi.kstom.event.listenOnly
-import world.cepi.kstom.util.*
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
 import world.cepi.particle.data.OffsetAndSpeed
@@ -255,27 +251,33 @@ class MarathonGame : Game() {
         end()
     }
 
-    override fun registerEvents(eventNode: EventNode<InstanceEvent>) = with(eventNode) {
-        cancel<ItemDropEvent>()
-        cancel<InventoryPreClickEvent>()
-        cancel<PlayerSwapItemEvent>()
+    override fun registerEvents(eventNode: EventNode<InstanceEvent>) {
+        eventNode.addListener(ItemDropEvent::class.java) { e ->
+            e.isCancelled = true
+        }
+        eventNode.addListener(InventoryPreClickEvent::class.java) { e ->
+            e.isCancelled = true
+        }
+        eventNode.addListener(PlayerSwapItemEvent::class.java) { e ->
+            e.isCancelled = true
+        }
 
-        listenOnly<PlayerUseItemEvent> {
-            isCancelled = true
+        eventNode.addListener(PlayerUseItemEvent::class.java) { e ->
+            e.isCancelled = true
 
-            when (itemStack.material()) {
+            when (e.itemStack.material()) {
                 Material.CLOCK -> {
-                    player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
+                    e.player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
 
                     playerSettings = when (playerSettings?.theme) {
                         "light" -> {
-                            player.sendMessage(Component.text("Set theme is now dark", NamedTextColor.GOLD))
-                            instance.time = 18000
+                            e.player.sendMessage(Component.text("Set theme is now dark", NamedTextColor.GOLD))
+                            e.instance.time = 18000
                             playerSettings?.copy(theme = "dark")
                         }
                         else -> {
-                            player.sendMessage(Component.text("Set theme is now light", NamedTextColor.GOLD))
-                            instance.time = 0
+                            e.player.sendMessage(Component.text("Set theme is now light", NamedTextColor.GOLD))
+                            e.instance.time = 0
                             playerSettings?.copy(theme = "light")
                         }
                     }
@@ -283,11 +285,11 @@ class MarathonGame : Game() {
 
                 Material.LEATHER_BOOTS -> {
                     playerSettings = if (playerSettings?.speedrunMode == true) {
-                        player.sendMessage(Component.text("Disabled speedrun mode", NamedTextColor.GOLD))
+                        e.player.sendMessage(Component.text("Disabled speedrun mode", NamedTextColor.GOLD))
                         target = -1
                         playerSettings?.copy(speedrunMode = false)
                     } else {
-                        player.sendMessage(Component.text("Enabled speedrun mode - Your target is 100", NamedTextColor.GOLD))
+                        e.player.sendMessage(Component.text("Enabled speedrun mode - Your target is 100", NamedTextColor.GOLD))
                         target = 100
                         playerSettings?.copy(speedrunMode = true)
                     }
@@ -297,12 +299,14 @@ class MarathonGame : Game() {
             }
         }
 
-        listenOnly<PlayerMoveEvent> {
-            if (player.hasTag(GameManager.playerSpectatingTag)) return@listenOnly
+        eventNode.addListener(PlayerMoveEvent::class.java) { e ->
+            if (e.player.hasTag(GameManager.playerSpectatingTag)) return@addListener
+
+            val newPosition = e.newPosition
             refreshSpectatorPosition(newPosition.add(0.0, 1.0, 0.0))
 
             synchronized(blocks) {
-                if (!player.hasTag(teleportingTag)) checkPosition(player, newPosition)
+                if (!e.player.hasTag(teleportingTag)) checkPosition(e.player, newPosition)
 
                 val posUnderPlayer = newPosition.sub(0.0, 1.0, 0.0).roundToBlock().asPos()
                 val pos2UnderPlayer = newPosition.sub(0.0, 2.0, 0.0).roundToBlock().asPos()
@@ -311,17 +315,17 @@ class MarathonGame : Game() {
                 var index = blocks.indexOf(pos2UnderPlayer)
 
                 if (index == -1) index = blocks.indexOf(posUnderPlayer)
-                if (index == -1 || index == 0) return@listenOnly
+                if (index == -1 || index == 0) return@addListener
 
                 generateNextBlock(index, true)
             }
         }
 
-        listenOnly<PlayerChangeHeldSlotEvent> {
-            val palette = BlockPalette.values()[player.inventory.getItemStack(slot.toInt()).getTag(paletteTag)
-                ?: return@listenOnly]
+        eventNode.addListener(PlayerChangeHeldSlotEvent::class.java) { e ->
+            val palette = BlockPalette.values()[e.player.inventory.getItemStack(e.slot.toInt()).getTag(paletteTag)
+                ?: return@addListener]
 
-            if (blockPalette == palette) return@listenOnly
+            if (blockPalette == palette) return@addListener
 
             blockPalette = palette
         }
@@ -366,9 +370,11 @@ class MarathonGame : Game() {
         breakingTask = null
 
         if (score == 0) {
-            instance!!.chunksInRange(Pos.ZERO, 3).forEach {
-                val chunk = instance!!.getChunk(it.first, it.second)
-                chunk?.sendChunk(player)
+            for (cx in -1..1) {
+                for (cz in -1..1) {
+                    val chunk = instance!!.getChunk(cx, cz)
+                    chunk?.sendChunk(player)
+                }
             }
 
             player.teleport(SPAWN_POINT).thenRun {
@@ -830,8 +836,8 @@ class MarathonGame : Game() {
 
     override fun instanceCreate(): CompletableFuture<Instance> {
 
-        val dimension = Manager.dimensionType.getDimension(NamespaceID.from("fullbright"))!!
-        val newInstance = Manager.instance.createInstanceContainer(dimension)
+        val dimension = MinecraftServer.getDimensionTypeManager().getDimension(NamespaceID.from("fullbright"))!!
+        val newInstance = MinecraftServer.getInstanceManager().createInstanceContainer(dimension)
         newInstance.time = 0
         newInstance.timeRate = 0
         newInstance.timeUpdate = null

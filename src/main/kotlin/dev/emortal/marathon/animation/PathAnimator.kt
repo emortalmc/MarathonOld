@@ -1,15 +1,13 @@
 package dev.emortal.marathon.animation
 
 import dev.emortal.immortal.game.Game
+import dev.emortal.immortal.util.asVec
 import net.minestom.server.coordinate.Point
-import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.metadata.other.FallingBlockMeta
 import net.minestom.server.instance.block.Block
 import net.minestom.server.timer.TaskSchedule
-import org.tinylog.kotlin.Logger
-import world.cepi.kstom.util.asVec
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
 import world.cepi.particle.data.OffsetAndSpeed
@@ -17,10 +15,6 @@ import world.cepi.particle.extra.Dust
 import world.cepi.particle.showParticle
 import world.cepi.particle.util.Vectors
 import java.lang.ref.WeakReference
-import java.time.Duration
-import java.util.concurrent.atomic.AtomicReference
-import kotlin.math.PI
-import kotlin.math.pow
 
 class PathAnimator : BlockAnimator() {
 

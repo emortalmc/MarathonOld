@@ -1,9 +1,9 @@
 package dev.emortal.marathon.generator
 
+import dev.emortal.immortal.util.asPos
+import dev.emortal.immortal.util.roundToBlock
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Vec
-import world.cepi.kstom.util.asPos
-import world.cepi.kstom.util.roundToBlock
 import java.util.concurrent.ThreadLocalRandom
 import kotlin.math.cos
 import kotlin.math.floor

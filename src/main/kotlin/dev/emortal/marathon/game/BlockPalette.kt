@@ -2,10 +2,10 @@ package dev.emortal.marathon.game
 
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.minimessage.MiniMessage
 import net.minestom.server.instance.block.Block
 import net.minestom.server.item.Material
 import net.minestom.server.sound.SoundEvent
-import world.cepi.kstom.adventure.asMini
 
 enum class BlockPalette(
     val displayItem: Material,
@@ -39,7 +39,7 @@ enum class BlockPalette(
 
     RAINBOW(
         Material.PINK_WOOL,
-        "<rainbow>Rainbow".asMini(),
+        MiniMessage.miniMessage().deserialize("<rainbow>Rainbow"),
         SoundEvent.BLOCK_WOOL_BREAK,
         Block.RED_WOOL,
         Block.ORANGE_WOOL,
@@ -93,5 +93,5 @@ enum class BlockPalette(
         Block.REDSTONE_ORE,
         Block.COAL_ORE,
         Block.LAPIS_ORE,
-    )
+    );
 }

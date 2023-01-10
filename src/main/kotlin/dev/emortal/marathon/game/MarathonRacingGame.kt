@@ -1,22 +1,28 @@
 package dev.emortal.marathon.game
 
 import dev.emortal.immortal.game.Game
-import dev.emortal.immortal.util.MinestomRunnable
+import dev.emortal.immortal.util.asPos
+import dev.emortal.immortal.util.asVec
+import dev.emortal.immortal.util.playSound
+import dev.emortal.immortal.util.roundToBlock
 import dev.emortal.marathon.animation.BlockAnimator
 import dev.emortal.marathon.animation.FallingSandAnimator
 import dev.emortal.marathon.generator.Generator
 import dev.emortal.marathon.generator.RacingGenerator
 import dev.emortal.marathon.utils.sendBlockDamage
+import kotlinx.coroutines.NonCancellable.cancel
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.title.Title
+import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.metadata.minecart.MinecartMeta
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.trait.InstanceEvent
@@ -25,13 +31,8 @@ import net.minestom.server.instance.block.Block
 import net.minestom.server.scoreboard.Sidebar
 import net.minestom.server.sound.SoundEvent
 import net.minestom.server.timer.Task
+import net.minestom.server.timer.TaskSchedule
 import net.minestom.server.utils.NamespaceID
-import world.cepi.kstom.Manager
-import world.cepi.kstom.event.listenOnly
-import world.cepi.kstom.util.asPos
-import world.cepi.kstom.util.asVec
-import world.cepi.kstom.util.playSound
-import world.cepi.kstom.util.roundToBlock
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
 import world.cepi.particle.data.OffsetAndSpeed
@@ -41,6 +42,7 @@ import java.time.Duration
 import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.function.Supplier
 import kotlin.math.pow
 
 class MarathonRacingGame : Game() {
@@ -104,14 +106,16 @@ class MarathonRacingGame : Game() {
 
     override fun registerEvents(eventNode: EventNode<InstanceEvent>) {
 
-        eventNode.listenOnly<PlayerMoveEvent> {
-            val racer = racerMap[player]
-            val blocks = racer?.blocks ?: return@listenOnly
+        eventNode.addListener(PlayerMoveEvent::class.java) { e ->
+            val racer = racerMap[e.player]
+            val blocks = racer?.blocks ?: return@addListener
+
+            val newPosition = e.newPosition
 
             if (newPosition.y() < (blocks.minOf { it.y() }) - 3) {
-                player.teleport(racer.playerPos)
-                reset(player, true)
-                return@listenOnly
+                e.player.teleport(racer.playerPos)
+                reset(e.player, true)
+                return@addListener
             }
 
             val posUnderPlayer = newPosition.sub(0.0, 1.0, 0.0).roundToBlock().asPos()
@@ -120,9 +124,9 @@ class MarathonRacingGame : Game() {
             var index = blocks.indexOf(pos2UnderPlayer)
 
             if (index == -1) index = blocks.indexOf(posUnderPlayer)
-            if (index == -1 || index == 0) return@listenOnly
+            if (index == -1 || index == 0) return@addListener
 
-            generateNextBlock(player, index, true)
+            generateNextBlock(e.player, index, true)
         }
     }
 
@@ -140,7 +144,7 @@ class MarathonRacingGame : Game() {
             9998
         ))
 
-        timerTask = Manager.scheduler.buildTask {
+        timerTask = instance!!.scheduler().buildTask {
             val timeTaken = System.currentTimeMillis() - startTimestamp
             val timeLeft = gameLength - timeTaken
 
@@ -153,16 +157,18 @@ class MarathonRacingGame : Game() {
             )
         }.repeat(Duration.ofSeconds(1)).schedule()
 
-        endGameTask = Manager.scheduler.buildTask {
+        endGameTask = instance!!.scheduler().buildTask {
             if (firstPlace == null) {
                 end()
                 return@buildTask
             }
 
+            val firstPlacePlayer = racerMap.maxBy { it.value.highscore }.key
+
             endGameTask?.cancel()
             timerTask?.cancel()
 
-            victory(firstPlace!!.player)
+            victory(firstPlacePlayer)
         }.delay(Duration.ofMillis(gameLength)).schedule()
 
         players.forEachIndexed { i,it ->
@@ -170,7 +176,7 @@ class MarathonRacingGame : Game() {
             it.isFlying = false
             it.isAllowFlying = false
 
-            racerMap[it] = ParkourRacer(it, Pos(i * 15.0, 150.0, 0.0))
+            racerMap[it] = ParkourRacer(Pos(i * 15.0, 150.0, 0.0))
 
             reset(it, false)
         }
@@ -187,10 +193,18 @@ class MarathonRacingGame : Game() {
 
         if (racer.score == 0) return@runBlocking
 
-        racer.blocks.forEach {
-            instance!!.setBlock(it, Block.AIR)
+        synchronized(racer.blocks) {
+            racer.blocks.forEach {
+                instance!!.setBlock(it, Block.AIR)
+            }
+            racer.blocks.clear()
+
+            val diamondBlockPos = racer.spawnPos.sub(0.0, 1.0, 0.0)
+            instance!!.setBlock(diamondBlockPos, Block.DIAMOND_BLOCK)
+            racer.blocks.add(diamondBlockPos)
+
+            generateNextBlock(player, length, false)
         }
-        racer.blocks.clear()
         racer.breakingTask?.cancel()
         racer.score = 0
         racer.combo = 0
@@ -221,14 +235,7 @@ class MarathonRacingGame : Game() {
             player.teleport(racer.playerPos)
         }
 
-        val diamondBlockPos = racer.spawnPos.sub(0.0, 1.0, 0.0)
-        racer.blocks.add(diamondBlockPos)
-
         player.velocity = Vec.ZERO
-
-        instance!!.setBlock(diamondBlockPos, Block.DIAMOND_BLOCK)
-
-        generateNextBlock(player, length, false)
 
     }
 
@@ -236,7 +243,7 @@ class MarathonRacingGame : Game() {
         val racer = racerMap[player] ?: return
 
         if (inGame) {
-            createBreakingTask(racer)
+            createBreakingTask(player, racer)
 
             val powerResult = 2.0.pow(racer.combo / 30.0)
             val maxTimeTaken = 1000L * times / powerResult
@@ -316,39 +323,49 @@ class MarathonRacingGame : Game() {
         )
     }
 
-    private fun createBreakingTask(racer: ParkourRacer) {
+    private fun createBreakingTask(player: Player, racer: ParkourRacer) {
         racer.breakingTask?.cancel()
-        racer.breakingTask = object : MinestomRunnable(group = runnableGroup, delay = Duration.ofSeconds(1), repeat = Duration.ofMillis(500)) {
-            var currentBreakingProgress = 0
 
-            override fun run() {
+        racer.breakingTask = player.scheduler().submitTask(object : Supplier<TaskSchedule> {
+            var currentBreakingProgress = 0
+            var first = true
+
+            override fun get(): TaskSchedule {
+                if (first) {
+                    first = false
+                    return TaskSchedule.seconds(1)
+                }
+
                 if (currentBreakingProgress > 8) {
-                    cancel()
-                    createBreakingTask(racer)
-                    generateNextBlock(racer.player)
-                    return
+                    createBreakingTask(player, racer)
+                    generateNextBlock(player)
+                    return TaskSchedule.stop()
                 }
 
                 currentBreakingProgress++
 
-                val block = racer.blocks[0]
+                val block = synchronized(racer.blocks) {
+                    racer.blocks[0]
+                }
 
-                racer.player.playSound(Sound.sound(SoundEvent.BLOCK_WOOD_HIT, Sound.Source.BLOCK, 0.5f, 1f), block)
+                player.playSound(Sound.sound(SoundEvent.BLOCK_WOOD_HIT, Sound.Source.BLOCK, 0.5f, 1f), block)
                 sendBlockDamage(block, currentBreakingProgress.toByte())
+
+                return TaskSchedule.millis(500)
             }
-        }
+        })
     }
 
     fun checkFirstPlace() {
-        val highestScore = racerMap.values.maxByOrNull { it.highscore }
-        if (highestScore != null && firstPlace != highestScore && highestScore.score > (firstPlace?.score ?: 0)) {
-            firstPlace = highestScore
+        val highestScore = racerMap.maxByOrNull { it.value.highscore }
+        if (highestScore != null && firstPlace != highestScore.value && highestScore.value.score > (firstPlace?.score ?: 0)) {
+            firstPlace = highestScore.value
 
             sendMessage(
                 Component.text()
                     .append(Component.text("★", NamedTextColor.YELLOW))
                     .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-                    .append(Component.text(highestScore.player.username, NamedTextColor.YELLOW))
+                    .append(Component.text(highestScore.key.username, NamedTextColor.YELLOW))
                     .append(Component.text(" is now in first place!", NamedTextColor.GRAY))
             )
 
@@ -357,8 +374,8 @@ class MarathonRacingGame : Game() {
     }
 
     override fun instanceCreate(): CompletableFuture<Instance> {
-        val dimension = Manager.dimensionType.getDimension(NamespaceID.from("fullbright"))!!
-        val newInstance = Manager.instance.createInstanceContainer(dimension)
+        val dimension = MinecraftServer.getDimensionTypeManager().getDimension(NamespaceID.from("fullbright"))!!
+        val newInstance = MinecraftServer.getInstanceManager().createInstanceContainer(dimension)
         newInstance.time = 0
         newInstance.timeRate = 0
         newInstance.setBlock(0, 149, 0, Block.DIAMOND_BLOCK)

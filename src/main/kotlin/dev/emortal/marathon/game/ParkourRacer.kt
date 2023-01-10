@@ -1,11 +1,10 @@
 package dev.emortal.marathon.game
 
-import dev.emortal.immortal.util.MinestomRunnable
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
-import net.minestom.server.entity.Player
+import net.minestom.server.timer.Task
 
-class ParkourRacer(val player: Player, val spawnPos: Pos) {
+data class ParkourRacer(val spawnPos: Pos) {
 
     val playerPos = spawnPos.add(0.5, 0.0, 0.5)
 
@@ -22,12 +21,6 @@ class ParkourRacer(val player: Player, val spawnPos: Pos) {
         blocks.add(spawnPos.sub(0.0, 1.0, 0.0))
     }
 
-    var breakingTask: MinestomRunnable? = null
-
-    override fun equals(other: Any?): Boolean {
-        val other = other as? ParkourRacer ?: return false
-        if (this.player.uuid == other.player.uuid) return true
-        return false
-    }
+    var breakingTask: Task? = null
 
 }

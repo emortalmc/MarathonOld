@@ -9,52 +9,55 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.minestom.server.command.builder.Command
 import net.minestom.server.command.builder.arguments.ArgumentWord
 import net.minestom.server.command.builder.arguments.number.ArgumentInteger
-import world.cepi.kstom.command.kommand.Kommand
 import java.util.*
 
-object SetScoreCommand : Kommand({
-    onlyPlayers()
+object SetScoreCommand : Command("setscore") {
 
-    val playerArgument = ArgumentWord("username")
-    val score = ArgumentInteger("score")
-    val mins = ArgumentInteger("mins")
-    val secs = ArgumentInteger("secs")
+    init {
+        val playerArgument = ArgumentWord("username")
+        val score = ArgumentInteger("score")
+        val mins = ArgumentInteger("mins")
+        val secs = ArgumentInteger("secs")
 
-    syntax(playerArgument, score, mins, secs) {
-        if (!sender.hasLuckPermission("marathon.setscore")) {
-            sender.sendMessage(Component.text("No permission", NamedTextColor.RED))
-            return@syntax
-        }
+        addConditionalSyntax({ sender, _ ->
+            sender.hasLuckPermission("marathon.setscore")
+        }, { sender, ctx ->
+            if (!sender.hasLuckPermission("marathon.setscore")) {
+                sender.sendMessage(Component.text("No permission", NamedTextColor.RED))
+                return@addConditionalSyntax
+            }
 
-        if (MarathonMain.mongoStorage == null) {
-            sender.sendMessage("Mongo storage is disabled")
-            return@syntax
-        }
+            if (MarathonMain.mongoStorage == null) {
+                sender.sendMessage("Mongo storage is disabled")
+                return@addConditionalSyntax
+            }
 
-        val username = !playerArgument
+            val username = ctx.get(playerArgument)
 
-        runBlocking {
-            launch {
-                TimeFrame.values().forEach {
-                    val collection = when (it) {
-                        TimeFrame.LIFETIME -> MongoStorage.leaderboard
-                        TimeFrame.MONTHLY -> MongoStorage.monthly
-                        TimeFrame.WEEKLY -> MongoStorage.weekly
+            runBlocking {
+                launch {
+                    TimeFrame.values().forEach {
+                        val collection = when (it) {
+                            TimeFrame.LIFETIME -> MongoStorage.leaderboard
+                            TimeFrame.MONTHLY -> MongoStorage.monthly
+                            TimeFrame.WEEKLY -> MongoStorage.weekly
+                        }
+
+                        val previousHighscore = MarathonMain.mongoStorage!!.getHighscore(UUID.fromString(username), collection)
+
+                        MarathonMain.mongoStorage!!.setHighscore(
+                            Highscore(username, ctx.get(score), (((ctx.get(mins) * 60) + ctx.get(secs)) * 1000).toLong(), previousHighscore?.timeSubmitted ?: 0),
+                            collection
+                        )
                     }
-
-                    val previousHighscore = MarathonMain.mongoStorage!!.getHighscore(UUID.fromString(username), collection)
-
-                    MarathonMain.mongoStorage!!.setHighscore(
-                        Highscore(username, !score, (((!mins * 60) + !secs) * 1000).toLong(), previousHighscore?.timeSubmitted ?: 0),
-                        collection
-                    )
                 }
             }
-        }
 
-        sender.sendMessage("Lol we set ${username}'s score to ${!score} hahaha")
+            sender.sendMessage("Lol we set ${username}'s score to ${ctx.get(score)} hahaha")
+        }, playerArgument, score, mins, secs)
     }
 
-}, "setscore")
+}
