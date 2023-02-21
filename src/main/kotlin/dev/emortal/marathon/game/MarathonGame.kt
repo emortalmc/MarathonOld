@@ -5,6 +5,7 @@ import dev.emortal.immortal.game.GameManager
 import dev.emortal.immortal.util.*
 import dev.emortal.marathon.MarathonMain
 import dev.emortal.marathon.animation.BlockAnimator
+import dev.emortal.marathon.animation.NoAnimator
 import dev.emortal.marathon.db.Highscore
 import dev.emortal.marathon.db.MongoStorage
 import dev.emortal.marathon.db.PlayerSettings
@@ -18,6 +19,7 @@ import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.title.Title
 import net.minestom.server.MinecraftServer
@@ -84,10 +86,10 @@ class MarathonGame : Game() {
     override val allowsSpectators: Boolean = true
 
     val generator: Generator = LegacyGenerator
-    val animation: BlockAnimator = PathAnimator()
+    var animation: BlockAnimator = PathAnimator()
 
     // Amount of blocks in front of the player
-    var length = 6
+    var length = 8
     var targetY = SPAWN_POINT.blockY()
     var targetX = 0
 
@@ -111,7 +113,7 @@ class MarathonGame : Game() {
     private var weeklyPlacement: Int? = 0
     private var monthlyPlacement: Int? = 0
 
-    private var playerSettings: PlayerSettings? = null
+    private lateinit var playerSettings: PlayerSettings
 
     private var passedHighscore = false
 
@@ -231,17 +233,29 @@ class MarathonGame : Game() {
             player.inventory.setItemStack(i + 2, item)
         }
 
+
         player.inventory.setItemStack(
-            0,
+            9,
+            ItemStack.builder(Material.LEATHER_BOOTS)
+                .displayName(Component.text("Speedrun Toggle", NamedTextColor.GOLD).noItalic())
+                .build()
+        )
+        player.inventory.setItemStack(
+            10,
             ItemStack.builder(Material.CLOCK)
                 .displayName(Component.text("Theme Toggle", NamedTextColor.GOLD).noItalic())
                 .build()
         )
-
         player.inventory.setItemStack(
-            8,
-            ItemStack.builder(Material.LEATHER_BOOTS)
-                .displayName(Component.text("Speedrun Toggle", NamedTextColor.GOLD).noItalic())
+            11,
+            ItemStack.builder(Material.ENDER_EYE)
+                .displayName(Component.text("No Distractions", NamedTextColor.GOLD).noItalic())
+                .build()
+        )
+        player.inventory.setItemStack(
+            12,
+            ItemStack.builder(Material.NOTE_BLOCK)
+                .displayName(Component.text("Sound Toggle", NamedTextColor.GOLD).noItalic())
                 .build()
         )
     }
@@ -257,6 +271,69 @@ class MarathonGame : Game() {
         }
         eventNode.addListener(InventoryPreClickEvent::class.java) { e ->
             e.isCancelled = true
+
+            when (e.clickedItem.material()) {
+                Material.CLOCK -> {
+                    e.player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
+
+                    playerSettings = when (playerSettings.theme) {
+                        "light" -> {
+                            e.player.sendMessage(Component.text("Set theme is now dark", NamedTextColor.GOLD))
+                            e.instance.time = 18000
+                            playerSettings.copy(theme = "dark")
+                        }
+                        else -> {
+                            e.player.sendMessage(Component.text("Set theme is now light", NamedTextColor.GOLD))
+                            e.instance.time = 0
+                            playerSettings.copy(theme = "light")
+                        }
+                    }
+                }
+
+                Material.LEATHER_BOOTS -> {
+                    playerSettings = if (playerSettings.speedrunMode == true) {
+                        e.player.sendMessage(Component.text("Disabled speedrun mode", NamedTextColor.GOLD))
+                        target = -1
+                        playerSettings.copy(speedrunMode = false)
+                    } else {
+                        e.player.sendMessage(Component.text("Enabled speedrun mode - Your target is 100", NamedTextColor.GOLD))
+                        target = 100
+                        playerSettings.copy(speedrunMode = true)
+                    }
+                }
+
+                Material.ENDER_EYE -> {
+                    playerSettings = if (playerSettings.noDistractions) {
+                        e.player.sendMessage(Component.text("Disabled no distractions", NamedTextColor.GOLD))
+
+                        scoreboard?.addViewer(e.player)
+                        animation = PathAnimator()
+                        e.player.level = 0
+
+                        playerSettings.copy(noDistractions = false)
+                    } else {
+                        e.player.sendMessage(Component.text("Enabled no distractions", NamedTextColor.GOLD))
+
+                        scoreboard?.removeViewer(e.player)
+                        animation = NoAnimator
+                        e.player.sendActionBar(Component.empty())
+                        e.player.level = score
+                        playerSettings.copy(noDistractions = true)
+                    }
+                }
+
+                Material.NOTE_BLOCK -> {
+                    playerSettings = if (playerSettings.noSounds) {
+                        e.player.sendMessage(Component.text("Enabled sounds", NamedTextColor.GOLD))
+                        playerSettings.copy(noSounds = false)
+                    } else {
+                        e.player.sendMessage(Component.text("Disabled sounds", NamedTextColor.GOLD))
+                        playerSettings.copy(noSounds = true)
+                    }
+                }
+
+                else -> {}
+            }
         }
         eventNode.addListener(PlayerSwapItemEvent::class.java) { e ->
             e.isCancelled = true
@@ -264,39 +341,6 @@ class MarathonGame : Game() {
 
         eventNode.addListener(PlayerUseItemEvent::class.java) { e ->
             e.isCancelled = true
-
-            when (e.itemStack.material()) {
-                Material.CLOCK -> {
-                    e.player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
-
-                    playerSettings = when (playerSettings?.theme) {
-                        "light" -> {
-                            e.player.sendMessage(Component.text("Set theme is now dark", NamedTextColor.GOLD))
-                            e.instance.time = 18000
-                            playerSettings?.copy(theme = "dark")
-                        }
-                        else -> {
-                            e.player.sendMessage(Component.text("Set theme is now light", NamedTextColor.GOLD))
-                            e.instance.time = 0
-                            playerSettings?.copy(theme = "light")
-                        }
-                    }
-                }
-
-                Material.LEATHER_BOOTS -> {
-                    playerSettings = if (playerSettings?.speedrunMode == true) {
-                        e.player.sendMessage(Component.text("Disabled speedrun mode", NamedTextColor.GOLD))
-                        target = -1
-                        playerSettings?.copy(speedrunMode = false)
-                    } else {
-                        e.player.sendMessage(Component.text("Enabled speedrun mode - Your target is 100", NamedTextColor.GOLD))
-                        target = 100
-                        playerSettings?.copy(speedrunMode = true)
-                    }
-                }
-
-                else -> {}
-            }
         }
 
         eventNode.addListener(PlayerMoveEvent::class.java) { e ->
@@ -349,8 +393,6 @@ class MarathonGame : Game() {
 
         blocks.clear()
         spectatorBoatMap.clear()
-
-        playerSettings = null
     }
 
     override fun spectatorJoin(player: Player) {
@@ -417,7 +459,7 @@ class MarathonGame : Game() {
 
             generateNextBlock(length, false)
 
-            val radius = 8
+            val radius = 3
             for (x in -radius..radius) {
                 for (z in -radius..radius) {
                     instance?.loadChunk(x, z)?.thenAccept { it.sendChunk() }
@@ -481,24 +523,26 @@ class MarathonGame : Game() {
             if (MarathonMain.mongoStorage != null) {
                 val highscorePoints = highscore?.score ?: 0
                 if (!passedHighscore && score > highscorePoints) {
-                    sendMessage(
-                        Component.text()
-                            .append(Component.text("\nYou beat your previous highscore of ", NamedTextColor.GRAY))
-                            .append(Component.text(highscorePoints, NamedTextColor.GREEN))
-                            .append(Component.text("\nSee how much further you can go!", NamedTextColor.GOLD))
-                            .append(Component.text("\n"))
-                            .armify()
-                    )
-                    playSound(Sound.sound(SoundEvent.ENTITY_VILLAGER_CELEBRATE, Sound.Source.MASTER, 1f, 1f))
+                    if (!playerSettings.noDistractions) {
+                        sendMessage(
+                            Component.text()
+                                .append(Component.text("\nYou beat your previous highscore of ", NamedTextColor.GRAY))
+                                .append(Component.text(highscorePoints, NamedTextColor.GREEN))
+                                .append(Component.text("\nSee how much further you can go!", NamedTextColor.GOLD))
+                                .append(Component.text("\n"))
+                                .armify()
+                        )
+                        playSound(Sound.sound(SoundEvent.ENTITY_VILLAGER_CELEBRATE, Sound.Source.MASTER, 1f, 1f))
+                    }
 
                     passedHighscore = true
                 }
             }
 
-            showTitle(
+            if (!playerSettings.noDistractions) showTitle(
                 Title.title(
                     Component.empty(),
-                    Component.text(score, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD),
+                    Component.text(score, TextColor.fromHexString("#ff00a6")!!, TextDecoration.BOLD),
                     Title.Times.times(Duration.ZERO, Duration.ofMillis(500), Duration.ofMillis(100))
                 )
             )
@@ -623,22 +667,28 @@ class MarathonGame : Game() {
     }
 
     private fun updateActionBar() {
-        val millisTaken: Long = if (startTimestamp == -1L) 0 else System.currentTimeMillis() - startTimestamp
-        val formattedTime: String = dateFormat.format(Date(millisTaken))
-        val secondsTaken = millisTaken / 1000.0
-        val scorePerSecond =
-            if (score < 2) "-.-" else ((score / secondsTaken * 10.0).roundToInt() / 10.0).coerceIn(0.0, 9.9)
+        if (playerSettings.noDistractions) {
+            players.forEach {
+                it.level = score
+            }
+        } else {
+            val millisTaken: Long = if (startTimestamp == -1L) 0 else System.currentTimeMillis() - startTimestamp
+            val formattedTime: String = dateFormat.format(Date(millisTaken))
+            val secondsTaken = millisTaken / 1000.0
+            val scorePerSecond =
+                if (score < 2) "-.-" else ((score / secondsTaken * 10.0).roundToInt() / 10.0).coerceIn(0.0, 9.9)
 
-        val message: Component = Component.text()
-            .append(Component.text(score, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
-            .append(Component.text(" points", NamedTextColor.DARK_PURPLE))
-            .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-            .append(Component.text(formattedTime, NamedTextColor.GRAY))
-            .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-            .append(Component.text("${scorePerSecond}bps", NamedTextColor.GRAY))
-            .build()
+            val message: Component = Component.text()
+                .append(Component.text(score, TextColor.fromHexString("#ff00a6")!!, TextDecoration.BOLD))
+                .append(Component.text(" points", TextColor.fromHexString("#bf007c")!!))
+                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                .append(Component.text(formattedTime, NamedTextColor.GRAY))
+                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("${scorePerSecond}bps", NamedTextColor.GRAY))
+                .build()
 
-        sendActionBar(message)
+            sendActionBar(message)
+        }
     }
 
     fun checkPosition(player: Player, position: Pos) {
@@ -819,11 +869,11 @@ class MarathonGame : Game() {
     fun playSound(pitch: Float) {
         //if (MusicCommand.stopPlayingTaskMap.containsKey(players.first())) return
 
-        playSound(
+        if (!playerSettings.noSounds) playSound(
             Sound.sound(
                 SoundEvent.BLOCK_NOTE_BLOCK_BASS,
                 Sound.Source.MASTER,
-                3f,
+                if (playerSettings.noDistractions) 0.7f else 2f,
                 pitch
             ),
             Sound.Emitter.self()

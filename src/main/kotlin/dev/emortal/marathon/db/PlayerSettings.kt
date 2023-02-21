@@ -4,5 +4,7 @@ package dev.emortal.marathon.db
 data class PlayerSettings(
     val uuid: String,
     var theme: String = "light",
-    var speedrunMode: Boolean = false
+    var speedrunMode: Boolean = false,
+    var noDistractions: Boolean = false,
+    var noSounds: Boolean = false,
 )

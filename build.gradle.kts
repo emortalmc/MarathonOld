@@ -15,13 +15,13 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.Minestom:Minestom:84846f663b")
-    implementation("com.github.EmortalMC:Immortal:30f89199e2")
+    implementation("com.github.hollow-cube:Minestom:e6d4a2cc91")
+    implementation("com.github.EmortalMC:Immortal:bb0a38dc47")
 
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
 
-    implementation("com.github.EmortalMC:Acquaintance:95a47b101c")
+    implementation("com.github.EmortalMC:Acquaintance:0790b3c07f")
 }
 
 tasks {

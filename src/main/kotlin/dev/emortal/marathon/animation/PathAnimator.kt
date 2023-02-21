@@ -18,6 +18,7 @@ import java.lang.ref.WeakReference
 
 class PathAnimator : BlockAnimator() {
 
+    val topper = listOf<Block>(Block.GRASS, Block.POPPY, Block.BLUE_ORCHID, Block.ALLIUM, Block.AZURE_BLUET, Block.RED_TULIP, Block.ORANGE_TULIP, Block.WHITE_TULIP, Block.PINK_TULIP, Block.OXEYE_DAISY, Block.CORNFLOWER, Block.LILY_OF_THE_VALLEY)
     var lastSandEntity: WeakReference<Entity> = WeakReference(null)
 
     private fun getLastPos(): Point? {
@@ -26,7 +27,7 @@ class PathAnimator : BlockAnimator() {
     }
 
     override fun setBlockAnimated(game: Game, point: Point, block: Block, lastPoint: Point) {
-        val timeToAnimate = 0.4
+        val timeToAnimate = 0.65
         val actualLastPoint = getLastPos() ?: lastPoint
 
         val fallingBlock = NoPhysicsEntity(EntityType.FALLING_BLOCK)
@@ -39,7 +40,7 @@ class PathAnimator : BlockAnimator() {
             .sub(actualLastPoint)
             .asVec()
             .normalize()
-            .mul((1 / timeToAnimate) * 1.15 * point.distance(actualLastPoint))
+            .mul((1 / timeToAnimate) * 1.08 * point.distance(actualLastPoint))
 
         fallingBlock.setInstance(game.instance!!, actualLastPoint.add(0.5, 0.0, 0.5)).thenRun {
             lastSandEntity = WeakReference(fallingBlock)
@@ -50,16 +51,18 @@ class PathAnimator : BlockAnimator() {
                 type = ParticleType.DUST,
                 count = 1,
                 data = OffsetAndSpeed(0f, 0f, 0f, 0f),
-                extraData = Dust(1f, 0f, 1f, 1.25f)
+                extraData = Dust(1f, 0f, 1f, 1.5f)
             ), Vectors(point.asVec().add(0.5, 0.5, 0.5), actualLastPoint.asVec().add(0.5, 0.5, 0.5), 0.35)
         )
 
         game.instance?.scheduler()?.buildTask {
             game.instance?.setBlock(point, fallingBlockMeta.block)
+            if (fallingBlockMeta.block == Block.GRASS_BLOCK || fallingBlockMeta.block == Block.MOSS_BLOCK) {
+                game.instance?.setBlock(point.add(0.0, 1.0, 0.0), topper.random())
+            }
 
             lastSandEntity.get().let {
                 if (fallingBlock == it) {
-                    null
                     lastSandEntity.clear()
                 } else {
                     it

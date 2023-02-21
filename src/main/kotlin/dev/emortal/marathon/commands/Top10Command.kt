@@ -2,11 +2,13 @@ package dev.emortal.marathon.commands
 
 import dev.emortal.acquaintance.RelationshipManager.getCachedUsername
 import dev.emortal.immortal.util.armify
+import dev.emortal.immortal.util.centerSpaces
 import dev.emortal.immortal.util.centerText
 import dev.emortal.immortal.util.parsed
 import dev.emortal.marathon.MarathonMain
 import dev.emortal.marathon.utils.TimeFrame
 import dev.emortal.marathon.utils.enumValueOrNull
+import dev.emortal.marathon.utils.usernameFromUUID
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.text.Component
@@ -14,6 +16,7 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.Style
 import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
+import net.kyori.adventure.text.minimessage.MiniMessage
 import net.minestom.server.command.CommandSender
 import net.minestom.server.command.builder.Command
 import net.minestom.server.command.builder.arguments.ArgumentString
@@ -63,19 +66,19 @@ object Top10Command : Command("leaderboard", "top10", "lb") {
         }
 
         val message = Component.text()
-            .append(Component.text(centerText("${timeFrame.lyName.replaceFirstChar(Char::uppercase)} Marathon Leaderboard", bold = true), NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD))
+            .append(MiniMessage.miniMessage().deserialize("<gradient:#d900ff:#ff00b3><bold>${centerSpaces("${timeFrame.lyName.replaceFirstChar(Char::uppercase)} Leaderboard", bold = true)}${"${timeFrame.lyName.replaceFirstChar(Char::uppercase)} Leaderboard"}"))
             .append(Component.newline())
 
         if (highscores.isEmpty()) {
             message.append(Component.text("\n   No scores (╯°□°）╯︵ ┻━┻\n", NamedTextColor.GRAY))
 
             sender.sendMessage(message.armify())
-            return // early exit
+            return
         }
 
         var i = 1
         highscores.forEach {
-            val playerUsername = it.uuid.getCachedUsername() ?: "???"
+            val playerUsername = it.uuid.getCachedUsername() ?: usernameFromUUID(it.uuid) ?: "???"
 
             //val formattedTime: String = MarathonGame.dateFormat.format(Date(it.value.time))
 
@@ -93,7 +96,7 @@ object Top10Command : Command("leaderboard", "top10", "lb") {
             }
             val scoreColor = when (i) {
                 1,2,3 -> Style.style(NamedTextColor.LIGHT_PURPLE)
-                else -> Style.style(NamedTextColor.YELLOW)
+                else -> Style.style(TextColor.fromHexString("#006c96")!!)
             }
             val timesColor = when (i) {
                 1,2,3 -> Style.style(NamedTextColor.GRAY)
