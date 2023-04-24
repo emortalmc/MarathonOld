@@ -21,7 +21,7 @@ dependencies {
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
 
-    implementation("com.github.EmortalMC:Acquaintance:0790b3c07f")
+    implementation("com.github.EmortalMC:Acquaintance:73e756e516")
 }
 
 tasks {

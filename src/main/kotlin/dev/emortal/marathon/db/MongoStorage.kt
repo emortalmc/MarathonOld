@@ -16,7 +16,7 @@ import org.litote.kmongo.coroutine.coroutine
 import org.litote.kmongo.eq
 import org.litote.kmongo.gt
 import org.litote.kmongo.reactivestreams.KMongo
-import org.tinylog.kotlin.Logger
+import org.slf4j.LoggerFactory
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDateTime
@@ -25,7 +25,8 @@ import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import java.util.*
 import java.util.function.Supplier
-import kotlin.reflect.jvm.internal.impl.descriptors.SupertypeLoopChecker
+
+private val LOGGER = LoggerFactory.getLogger(MongoStorage::class.java)
 
 class MongoStorage {
 
@@ -90,8 +91,8 @@ class MongoStorage {
             val durationUntilNextWeek = Duration.ofSeconds(nextWeek - now)
             val durationUntilNextMonth = Duration.ofSeconds(nextMonth - now)
 
-            Logger.info("Weekly will reset in ${nextWeek - now}s")
-            Logger.info("Monthly will reset in ${nextMonth - now}s")
+            LOGGER.info("Weekly will reset in ${nextWeek - now}s")
+            LOGGER.info("Monthly will reset in ${nextMonth - now}s")
 
             var resetTimes = resetCollection?.findOne()!!
 
@@ -111,7 +112,7 @@ class MongoStorage {
                     val nextWeek = LocalDateTime.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
 
                     mongoScope.launch {
-                        Logger.info("Cleared weekly leaderboard!")
+                        LOGGER.info("Cleared weekly leaderboard!")
                         weekly?.drop()
                         val newResetTimes = resetTimes.copy(weeklyResetTimestamp = nextWeek)
                         resetCollection?.replaceOne("{}", resetTimes.copy(weeklyResetTimestamp = nextWeek))
@@ -137,7 +138,7 @@ class MongoStorage {
                     val nextMonth = LocalDateTime.now().with(TemporalAdjusters.firstDayOfNextMonth()).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
 
                     mongoScope.launch {
-                        Logger.info("Cleared monthly leaderboard!")
+                        LOGGER.info("Cleared monthly leaderboard!")
                         monthly?.drop()
                         val newResetTimes = resetTimes.copy(monthlyResetTimestamp = nextMonth)
                         resetCollection?.replaceOne("{}", resetTimes.copy(monthlyResetTimestamp = nextMonth))

@@ -15,9 +15,10 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.MinecraftServer
 import org.litote.kmongo.serialization.SerializationClassMappingTypeService
-import org.tinylog.kotlin.Logger
+import org.slf4j.LoggerFactory
 import java.nio.file.Path
 
+private val LOGGER = LoggerFactory.getLogger(MarathonMain::class.java)
 
 fun main() {
     Immortal.initAsServer()
@@ -52,7 +53,7 @@ fun main() {
 
     AcquaintanceExtension.init(MinecraftServer.getGlobalEventHandler())
 
-    Logger.info("[Marathon] Initialized!")
+    LOGGER.info("[Marathon] Initialized!")
 }
 
 object MarathonMain {

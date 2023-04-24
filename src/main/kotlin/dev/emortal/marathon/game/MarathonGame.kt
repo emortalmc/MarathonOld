@@ -47,7 +47,7 @@ import net.minestom.server.tag.Tag
 import net.minestom.server.timer.Task
 import net.minestom.server.utils.NamespaceID
 import net.minestom.server.utils.time.TimeUnit
-import org.tinylog.kotlin.Logger
+import org.slf4j.LoggerFactory
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
 import world.cepi.particle.data.OffsetAndSpeed
@@ -63,6 +63,8 @@ import kotlin.collections.ArrayDeque
 import kotlin.collections.set
 import kotlin.math.pow
 import kotlin.math.roundToInt
+
+private val LOGGER = LoggerFactory.getLogger(MarathonGame::class.java)
 
 class MarathonGame : Game() {
 
@@ -434,6 +436,7 @@ class MarathonGame : Game() {
         synchronized(blocks) {
             blocks.forEach { block ->
                 instance!!.setBlock(block, Block.AIR)
+                instance!!.setBlock(block.add(0.0, 1.0, 0.0), Block.AIR)
             }
 
             blocks.clear()
@@ -477,7 +480,7 @@ class MarathonGame : Game() {
             checkHighscores(player, previousScore)
         } else {
             // Player likely cheated, do not record score
-            Logger.info("Player ${player.username} had an invalid run. Score: ${previousScore}, bps: ${bps}")
+            LOGGER.info("Player ${player.username} had an invalid run. Score: ${previousScore}, bps: ${bps}")
         }
 
         invalidateRun = false
@@ -592,6 +595,7 @@ class MarathonGame : Game() {
         synchronized(blocks) {
             if (inGame && blocks.size > length) {
                 animation.destroyBlockAnimated(this, blocks.first(), Block.AIR)
+                animation.destroyBlockAnimated(this, blocks.first().add(0.0, 1.0, 0.0), Block.AIR)
 
                 blocks.removeFirst()
             }
