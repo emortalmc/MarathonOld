@@ -35,7 +35,7 @@ object Top10Command : Command("leaderboard", "top10", "lb") {
             .setSuggestionCallback { sender, context, suggestion ->
                 TimeFrame.values().forEach { suggestion.addEntry(SuggestionEntry(it.name.lowercase())) }
             }
-            .map { enumValueOrNull<TimeFrame>(it.uppercase()) }
+            .map { it -> enumValueOrNull<TimeFrame>(it.uppercase()) }
 
         addSyntax({ sender, context -> runBlocking {
             val timeFrame = context.get(timeFrameArgument)

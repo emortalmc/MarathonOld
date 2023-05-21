@@ -40,7 +40,7 @@ class MongoStorage {
         var weekly: CoroutineCollection<Highscore>? = null
         var monthly: CoroutineCollection<Highscore>? = null
 
-//        var playerSettings: CoroutineCollection<PlayerSettings>? = null
+        var playerSettings: CoroutineCollection<PlayerSettings>? = null
 
         var resetCollection: CoroutineCollection<ResetTimes>? = null
     }
@@ -60,14 +60,13 @@ class MongoStorage {
         // Reset logic
         mongoScope.launch {
             val now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-            val tomorrow = LocalDateTime.now().truncatedTo(ChronoUnit.DAYS).plusDays(1).toEpochSecond(ZoneOffset.UTC)
             val nextWeek = LocalDateTime.now().with(TemporalAdjusters.next(DayOfWeek.MONDAY)).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
             val nextMonth = LocalDateTime.now().with(TemporalAdjusters.firstDayOfNextMonth()).truncatedTo(ChronoUnit.DAYS).toEpochSecond(ZoneOffset.UTC)
 
             if (resetCollection?.findOne() == null) {
 
                 // First time DB init
-                resetCollection?.insertOne(ResetTimes(tomorrow, nextWeek, nextMonth))
+                resetCollection?.insertOne(ResetTimes(nextWeek, nextMonth))
 
             } else {
                 // Checks if leaderboards should have been reset, but the server was offline
@@ -177,11 +176,10 @@ class MongoStorage {
         return getPlacementByScore(highscore.score, collection)
     }
 
-//    suspend fun getSettings(uuid: UUID): PlayerSettings =
-//        playerSettings?.findOne(PlayerSettings::uuid eq uuid.toString())
-//        ?: PlayerSettings(uuid = uuid.toString())
-//
-//    fun saveSettings(uuid: UUID, settings: PlayerSettings) = runBlocking {
-//        playerSettings?.replaceOne(PlayerSettings::uuid eq settings.uuid, settings, ReplaceOptions().upsert(true))
-//    }
+    suspend fun getSettings(uuid: UUID): PlayerSettings =
+        playerSettings?.findOne(PlayerSettings::uuid eq uuid.toString())
+        ?: PlayerSettings(uuid = uuid.toString())
+
+    suspend fun saveSettings(settings: PlayerSettings) =
+        playerSettings?.replaceOne(PlayerSettings::uuid eq settings.uuid, settings, ReplaceOptions().upsert(true))
 }

@@ -1,11 +1,10 @@
 package dev.emortal.marathon.animation
 
 import dev.emortal.immortal.game.Game
-import dev.emortal.immortal.util.asVec
 import net.minestom.server.coordinate.Point
-import net.minestom.server.entity.Entity
+import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.EntityType
-import net.minestom.server.entity.metadata.other.FallingBlockMeta
+import net.minestom.server.entity.metadata.display.BlockDisplayMeta
 import net.minestom.server.instance.block.Block
 import net.minestom.server.timer.TaskSchedule
 import world.cepi.particle.Particle
@@ -14,62 +13,55 @@ import world.cepi.particle.data.OffsetAndSpeed
 import world.cepi.particle.extra.Dust
 import world.cepi.particle.showParticle
 import world.cepi.particle.util.Vectors
-import java.lang.ref.WeakReference
 
 class PathAnimator : BlockAnimator() {
 
-    val topper = listOf<Block>(Block.GRASS, Block.POPPY, Block.BLUE_ORCHID, Block.ALLIUM, Block.AZURE_BLUET, Block.RED_TULIP, Block.ORANGE_TULIP, Block.WHITE_TULIP, Block.PINK_TULIP, Block.OXEYE_DAISY, Block.CORNFLOWER, Block.LILY_OF_THE_VALLEY)
-    var lastSandEntity: WeakReference<Entity> = WeakReference(null)
+    var lastRealPoint: Point? = null
 
-    private fun getLastPos(): Point? {
-        //if (lastSandEntity.get() == null) return null
-        return lastSandEntity.get()?.position?.sub(0.5, 0.0, 0.5)
+    override fun onReset(game: Game) {
+        lastRealPoint = null
     }
 
     override fun setBlockAnimated(game: Game, point: Point, block: Block, lastPoint: Point) {
-        val timeToAnimate = 0.65
-        val actualLastPoint = getLastPos() ?: lastPoint
+        val pointVec = Vec.fromPoint(point)
 
-        val fallingBlock = NoPhysicsEntity(EntityType.FALLING_BLOCK)
-        val fallingBlockMeta = fallingBlock.entityMeta as FallingBlockMeta
+        val ticksToAnimate = 13
+        val actualLastPoint = lastRealPoint ?: lastPoint
 
-        fallingBlock.setNoGravity(true)
-        fallingBlockMeta.block = block
+        val displayEntity = NoPhysicsEntity(EntityType.BLOCK_DISPLAY)
+        val meta = displayEntity.entityMeta as BlockDisplayMeta
 
-        fallingBlock.velocity = point
-            .sub(actualLastPoint)
-            .asVec()
-            .normalize()
-            .mul((1 / timeToAnimate) * 1.08 * point.distance(actualLastPoint))
+        displayEntity.setNoGravity(true)
+        meta.setNotifyAboutChanges(false)
+        meta.setBlockState(block.stateId().toInt())
+        meta.interpolationDuration = ticksToAnimate
+        meta.setNotifyAboutChanges(true)
 
-        fallingBlock.setInstance(game.instance!!, actualLastPoint.add(0.5, 0.0, 0.5)).thenRun {
-            lastSandEntity = WeakReference(fallingBlock)
-        }
+        displayEntity.setInstance(game.instance!!, actualLastPoint)
 
-        game.showParticle(
-            Particle.particle(
-                type = ParticleType.DUST,
-                count = 1,
-                data = OffsetAndSpeed(0f, 0f, 0f, 0f),
-                extraData = Dust(1f, 0f, 1f, 1.5f)
-            ), Vectors(point.asVec().add(0.5, 0.5, 0.5), actualLastPoint.asVec().add(0.5, 0.5, 0.5), 0.35)
-        )
+        displayEntity.scheduler().buildTask {
+            meta.setNotifyAboutChanges(false)
+            meta.setInterpolationStartDelta(0)
+            meta.translation = point.sub(actualLastPoint)
+            meta.setNotifyAboutChanges(true)
+
+            game.showParticle(
+                Particle.particle(
+                    type = ParticleType.DUST,
+                    count = 1,
+                    data = OffsetAndSpeed(0f, 0f, 0f, 0f),
+                    extraData = Dust(1f, 0f, 1f, 1.2f)
+                ), Vectors(pointVec.add(0.5, 0.5, 0.5), Vec.fromPoint(actualLastPoint.add(0.5, 0.5, 0.5)), 0.45)
+            )
+        }.delay(TaskSchedule.tick(2)).schedule()
 
         game.instance?.scheduler()?.buildTask {
-            game.instance?.setBlock(point, fallingBlockMeta.block)
-            if (fallingBlockMeta.block == Block.GRASS_BLOCK || fallingBlockMeta.block == Block.MOSS_BLOCK) {
-                game.instance?.setBlock(point.add(0.0, 1.0, 0.0), topper.random())
-            }
+            lastRealPoint = point
+            game.instance?.setBlock(point, block)
+        }?.delay(TaskSchedule.tick(ticksToAnimate + 3))?.schedule()
 
-            lastSandEntity.get().let {
-                if (fallingBlock == it) {
-                    lastSandEntity.clear()
-                } else {
-                    it
-                }
-            }
-
-            fallingBlock.remove()
-        }?.delay(TaskSchedule.millis((timeToAnimate * 1000L).toLong()))?.schedule()
+        game.instance?.scheduler()?.buildTask {
+            displayEntity.remove()
+        }?.delay(TaskSchedule.tick(ticksToAnimate + 5))?.schedule()
     }
 }

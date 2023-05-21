@@ -1,8 +1,8 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "1.7.21"
-    kotlin("plugin.serialization") version "1.7.21"
+    id("org.jetbrains.kotlin.jvm") version "1.8.21"
+    kotlin("plugin.serialization") version "1.8.21"
     id("com.github.johnrengelman.shadow") version "7.1.2"
 
     java
@@ -15,8 +15,9 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.hollow-cube:Minestom:e6d4a2cc91")
-    implementation("com.github.EmortalMC:Immortal:bb0a38dc47")
+    implementation("com.github.hollow-cube:Minestom:d5c92066ce")
+//    implementation("com.github.EmortalMC:Immortal:bb0a38dc47")
+    implementation("dev.emortal.immortal:Immortal:3.0.1")
 
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")

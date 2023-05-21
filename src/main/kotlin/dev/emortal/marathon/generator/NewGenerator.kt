@@ -1,6 +1,5 @@
 package dev.emortal.marathon.generator
 
-import dev.emortal.immortal.util.asPos
 import dev.emortal.immortal.util.roundToBlock
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Vec
@@ -16,7 +15,6 @@ object NewGenerator : Generator() {
         val yChange = ThreadLocalRandom.current().nextInt(-10, -5)
         return pos
             .add(randomPointWithinDistance(1.5, maxDistanceFromYChange(yChange.toDouble())))
-            .asPos()
             .roundToBlock()
             .add(0.0, yChange.toDouble(), 0.0)
     }

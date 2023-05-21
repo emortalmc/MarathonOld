@@ -9,7 +9,6 @@ import dev.emortal.marathon.commands.Top10Command
 import dev.emortal.marathon.config.DatabaseConfig
 import dev.emortal.marathon.db.MongoStorage
 import dev.emortal.marathon.game.MarathonGame
-import dev.emortal.marathon.game.MarathonRacingGame
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
@@ -39,16 +38,9 @@ fun main() {
         cm.register(Top10Command)
     }
 
-    GameManager.registerGame<MarathonGame>(
-        "marathon",
-        Component.text("Marathon", NamedTextColor.RED, TextDecoration.BOLD),
-        showsInSlashPlay = true
-    )
-
-    GameManager.registerGame<MarathonRacingGame>(
-        "marathonracing",
-        Component.text("Marathon Racing", NamedTextColor.RED, TextDecoration.BOLD),
-        showsInSlashPlay = true
+    GameManager.registerGame(
+        { MarathonGame() },
+        "marathon"
     )
 
     AcquaintanceExtension.init(MinecraftServer.getGlobalEventHandler())

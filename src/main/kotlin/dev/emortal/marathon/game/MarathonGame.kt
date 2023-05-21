@@ -15,6 +15,7 @@ import dev.emortal.marathon.utils.TimeFrame
 import dev.emortal.marathon.utils.sendBlockDamage
 import dev.emortal.marathon.utils.updateOrCreateLine
 import dev.emortal.marathon.animation.PathAnimator
+import dev.emortal.marathon.animation.SuvatAnimator
 import kotlinx.coroutines.runBlocking
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -76,7 +77,24 @@ class MarathonGame : Game() {
         val paletteTag = Tag.Integer("palette")
         val teleportingTag = Tag.Boolean("teleporting")
 
-
+        val toggleSoundItem = ItemStack.builder(Material.NOTE_BLOCK)
+            .displayName(Component.text("Toggle Sound", NamedTextColor.GOLD).noItalic())
+            .build()
+        val noDistractionsItem = ItemStack.builder(Material.ENDER_EYE)
+            .displayName(Component.text("No Distractions", NamedTextColor.GOLD).noItalic())
+            .lore(
+                Component.text("- Hide score popup").noItalic(),
+                Component.text("- Hide scoreboard").noItalic(),
+                Component.text("- Disable animations & particles").noItalic(),
+                Component.text("- Reduce volume of sounds").noItalic()
+            )
+            .build()
+        val themeToggleItem = ItemStack.builder(Material.CLOCK)
+            .displayName(Component.text("Theme Toggle", NamedTextColor.GOLD).noItalic())
+            .build()
+        val speedrunToggleItem = ItemStack.builder(Material.LEATHER_BOOTS)
+            .displayName(Component.text("Toggle Speedrun", NamedTextColor.GOLD).noItalic())
+            .build()
     }
 
     override val maxPlayers: Int = 1
@@ -86,12 +104,13 @@ class MarathonGame : Game() {
     override val showScoreboard: Boolean = MarathonMain.mongoStorage != null
     override val showsJoinLeaveMessages: Boolean = false
     override val allowsSpectators: Boolean = true
+    override val gameName = "marathon"
+    override val gameComponent = Component.text("Marathon", NamedTextColor.RED, TextDecoration.BOLD)
 
     val generator: Generator = LegacyGenerator
     var animation: BlockAnimator = PathAnimator()
 
-    // Amount of blocks in front of the player
-    var length = 8
+    var length = 8 // Amount of blocks in front of the player
     var targetY = SPAWN_POINT.blockY()
     var targetX = 0
 
@@ -119,7 +138,7 @@ class MarathonGame : Game() {
 
     private var passedHighscore = false
 
-    var invalidateRun = false
+    private var invalidateRun = false
 
     var blockPalette = BlockPalette.OVERWORLD
         set(value) {
@@ -139,7 +158,7 @@ class MarathonGame : Game() {
 
     val blocks = ArrayDeque<Point>(length)
 
-    val spectatorBoatMap = ConcurrentHashMap<UUID, Entity>()
+    private val spectatorBoatMap = ConcurrentHashMap<UUID, Entity>()
 
     override fun getSpawnPosition(player: Player, spectator: Boolean): Pos =
         if (spectator) players.first().position else SPAWN_POINT
@@ -158,7 +177,7 @@ class MarathonGame : Game() {
             weeklyPlacement = MarathonMain.mongoStorage?.getPlacement(player.uuid, MongoStorage.weekly)
             monthlyPlacement = MarathonMain.mongoStorage?.getPlacement(player.uuid, MongoStorage.monthly)
 
-//        playerSettings = MarathonExtension.mongoStorage?.getSettings(player.uuid)
+            playerSettings = MarathonMain.mongoStorage?.getSettings(player.uuid) ?: PlayerSettings(player.uuid.toString())
 
             scoreboard?.createLine(
                 Sidebar.ScoreboardLine(
@@ -216,12 +235,15 @@ class MarathonGame : Game() {
                     2
                 )
             )
+        } else {
+            playerSettings = PlayerSettings(player.uuid.toString())
         }
 
         player.setHeldItemSlot(1)
 
-        when (playerSettings?.theme) {
-            "night" -> instance!!.time = 18000
+        when (playerSettings.theme) {
+            "light" -> instance!!.time = 0
+            "dark" -> instance!!.time = 18000
         }
 
         BlockPalette.values().forEachIndexed { i, it ->
@@ -236,30 +258,10 @@ class MarathonGame : Game() {
         }
 
 
-        player.inventory.setItemStack(
-            9,
-            ItemStack.builder(Material.LEATHER_BOOTS)
-                .displayName(Component.text("Speedrun Toggle", NamedTextColor.GOLD).noItalic())
-                .build()
-        )
-        player.inventory.setItemStack(
-            10,
-            ItemStack.builder(Material.CLOCK)
-                .displayName(Component.text("Theme Toggle", NamedTextColor.GOLD).noItalic())
-                .build()
-        )
-        player.inventory.setItemStack(
-            11,
-            ItemStack.builder(Material.ENDER_EYE)
-                .displayName(Component.text("No Distractions", NamedTextColor.GOLD).noItalic())
-                .build()
-        )
-        player.inventory.setItemStack(
-            12,
-            ItemStack.builder(Material.NOTE_BLOCK)
-                .displayName(Component.text("Sound Toggle", NamedTextColor.GOLD).noItalic())
-                .build()
-        )
+        player.inventory.setItemStack(9, speedrunToggleItem)
+        player.inventory.setItemStack(10, themeToggleItem)
+        player.inventory.setItemStack(11, noDistractionsItem)
+        player.inventory.setItemStack(12, toggleSoundItem)
     }
 
     override fun playerLeave(player: Player) {
@@ -271,11 +273,11 @@ class MarathonGame : Game() {
         eventNode.addListener(ItemDropEvent::class.java) { e ->
             e.isCancelled = true
         }
-        eventNode.addListener(InventoryPreClickEvent::class.java) { e ->
+        eventNode.addListener(InventoryPreClickEvent::class.java) { e -> runBlocking {
             e.isCancelled = true
 
             when (e.clickedItem.material()) {
-                Material.CLOCK -> {
+                themeToggleItem.material() -> {
                     e.player.playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.MASTER, 1f, 2f))
 
                     playerSettings = when (playerSettings.theme) {
@@ -290,10 +292,11 @@ class MarathonGame : Game() {
                             playerSettings.copy(theme = "light")
                         }
                     }
+                    MarathonMain.mongoStorage?.saveSettings(playerSettings)
                 }
 
-                Material.LEATHER_BOOTS -> {
-                    playerSettings = if (playerSettings.speedrunMode == true) {
+                speedrunToggleItem.material() -> {
+                    playerSettings = if (playerSettings.speedrunMode) {
                         e.player.sendMessage(Component.text("Disabled speedrun mode", NamedTextColor.GOLD))
                         target = -1
                         playerSettings.copy(speedrunMode = false)
@@ -302,9 +305,10 @@ class MarathonGame : Game() {
                         target = 100
                         playerSettings.copy(speedrunMode = true)
                     }
+                    MarathonMain.mongoStorage?.saveSettings(playerSettings)
                 }
 
-                Material.ENDER_EYE -> {
+                noDistractionsItem.material() -> {
                     playerSettings = if (playerSettings.noDistractions) {
                         e.player.sendMessage(Component.text("Disabled no distractions", NamedTextColor.GOLD))
 
@@ -322,9 +326,10 @@ class MarathonGame : Game() {
                         e.player.level = score
                         playerSettings.copy(noDistractions = true)
                     }
+                    MarathonMain.mongoStorage?.saveSettings(playerSettings)
                 }
 
-                Material.NOTE_BLOCK -> {
+                toggleSoundItem.material() -> {
                     playerSettings = if (playerSettings.noSounds) {
                         e.player.sendMessage(Component.text("Enabled sounds", NamedTextColor.GOLD))
                         playerSettings.copy(noSounds = false)
@@ -336,7 +341,9 @@ class MarathonGame : Game() {
 
                 else -> {}
             }
-        }
+
+
+        }}
         eventNode.addListener(PlayerSwapItemEvent::class.java) { e ->
             e.isCancelled = true
         }
@@ -354,8 +361,8 @@ class MarathonGame : Game() {
             synchronized(blocks) {
                 if (!e.player.hasTag(teleportingTag)) checkPosition(e.player, newPosition)
 
-                val posUnderPlayer = newPosition.sub(0.0, 1.0, 0.0).roundToBlock().asPos()
-                val pos2UnderPlayer = newPosition.sub(0.0, 2.0, 0.0).roundToBlock().asPos()
+                val posUnderPlayer = Pos.fromPoint(newPosition.sub(0.0, 1.0, 0.0).roundToBlock())
+                val pos2UnderPlayer = Pos.fromPoint(newPosition.sub(0.0, 2.0, 0.0).roundToBlock())
 
 
                 var index = blocks.indexOf(pos2UnderPlayer)
@@ -412,6 +419,8 @@ class MarathonGame : Game() {
     private fun reset(player: Player) = runBlocking {
         breakingTask?.cancel()
         breakingTask = null
+
+        animation.onReset(this@MarathonGame)
 
         if (score == 0) {
             for (cx in -1..1) {
@@ -622,7 +631,7 @@ class MarathonGame : Game() {
                         data = OffsetAndSpeed(0f, 0f, 0f, 0f),
                         extraData = Dust(1f, 0f, 1f, 1.25f)
                     ),
-                    Vectors(newPaletteBlockPos.asVec().add(0.5, 0.5, 0.5), lastBlock.asVec().add(0.5, 0.5, 0.5), 0.35)
+                    Vectors(Vec.fromPoint(newPaletteBlockPos.add(0.5, 0.5, 0.5)), Vec.fromPoint(lastBlock.add(0.5, 0.5, 0.5)), 0.35)
                 )
             }
 
