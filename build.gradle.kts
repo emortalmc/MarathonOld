@@ -19,7 +19,7 @@ dependencies {
 //    implementation("com.github.EmortalMC:Immortal:bb0a38dc47")
     implementation("dev.emortal.immortal:Immortal:3.0.1")
 
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
 
     implementation("com.github.EmortalMC:Acquaintance:73e756e516")
